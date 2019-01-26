@@ -19,18 +19,18 @@ object Hello extends Greeting {
   Orianna.setRiotAPIKey(token)
   Orianna.setDefaultRegion(Region.JAPAN)
   val summoner: Summoner = Orianna.summonerNamed("でーし0").get()
-  val cm: CurrentMatch = Orianna.currentMatchForSummoner(summoner).get()
-  val theirParticipants: Option[NonEmptyList[Player]] = for {
-    participants <- Option(cm.getParticipants)
-    myPlayer <- participants.asScala.find(_.getSummoner.getAccountId == summoner.getAccountId)
-    mySide: Side = myPlayer.getTeam.getSide
-    r <- cm.getParticipants.asScala.filter(_.getTeam.getSide != mySide).toList.toNel
-  } yield r
-  val theirChampions: NonEmptyList[Champion] = theirParticipants.get.map(_.getChampion).toList.toNel.get
+  val champ: Champion = Orianna.getChampions.get(1)
 
   val program1: IO[Unit] = IO {
-    println(theirChampions)
-//    theirChampions.zipWithIndex.foreach(println)
+    val cm: CurrentMatch = Orianna.currentMatchForSummoner(summoner).get()
+    val theirParticipants: Option[NonEmptyList[Player]] = for {
+      participants <- Option(cm.getParticipants)
+      myPlayer <- participants.asScala.find(_.getSummoner.getAccountId == summoner.getAccountId)
+      mySide: Side = myPlayer.getTeam.getSide
+      r <- cm.getParticipants.asScala.filter(_.getTeam.getSide != mySide).toList.toNel
+    } yield r
+    val theirChampions: NonEmptyList[Champion] = theirParticipants.get.map(_.getChampion).toList.toNel.get
+    theirChampions.map(_.getName).zipWithIndex.toList.foreach(println)
   }
 
 //  val program2: IO[Unit] = IO {
@@ -59,19 +59,30 @@ object Hello extends Greeting {
   }
 
   def program4(i: Int): IO[Unit] = IO {
+    val cm: CurrentMatch = Orianna.currentMatchForSummoner(summoner).get()
+    val theirParticipants: Option[NonEmptyList[Player]] = for {
+      participants <- Option(cm.getParticipants)
+      myPlayer <- participants.asScala.find(_.getSummoner.getAccountId == summoner.getAccountId)
+      mySide: Side = myPlayer.getTeam.getSide
+      r <- cm.getParticipants.asScala.filter(_.getTeam.getSide != mySide).toList.toNel
+    } yield r
+    val theirChampions: NonEmptyList[Champion] = theirParticipants.get.map(_.getChampion).toList.toNel.get
     println(a(theirChampions.toList(i)))
   }
 
-  def program5(i: Int): IO[Unit] = IO {
-    println(a(theirChampions.toList(i)))
+  val program5: IO[Unit] = IO {
+    println(a(champ))
   }
 
   val lb = "\n"
 
   def a(a: Champion): String =
     s"""${a.getName}
+      |
+      |${a.getPassive.getName}
       |${a.getPassive.description()}
-      |${a.getSpells.asScala.map(cs).mkString(lb+ lb)}
+      |
+      |${a.getSpells.asScala.map(cs).mkString(lb)}
       |
     """.stripMargin
 
@@ -79,17 +90,22 @@ object Hello extends Greeting {
 
   def cs(a: ChampionSpell): String =
     a.getName + lb + (if (a.getRanges.asScala.distinct.length == 1) {
-      a.getDescription + lb +
-        "CD:    " + a.getCooldowns.asScala.map(cd(_)).mkString("/") + lb + "RANGE: " + a.getRanges.asScala.head.toInt.toString
+      s"""${a.getDescription}
+        |CD:    ${a.getCooldowns.asScala.map(cd(_)).mkString("/")}
+        |RANGE: ${a.getRanges.asScala.head.toInt.toString}
+      """.stripMargin
     } else (a.getRanges.asScala zip a.getCooldowns.asScala).map({ case (range, c) =>
-      "CD:    " + cd(c) + lb + "RANGE: " + range.toInt.toString
+      s"""
+         |CD:    ${cd(c)}
+         |RANGE: ${range.toInt.toString}
+      """.stripMargin
     }).mkString(""))
 
   def d(a: ChampionSpell): String =
     a.getDescription
 
 
-  def main(args: Array[String]): Unit = (program1 *> program3.flatMap(program4)).unsafeRunSync
+  def main(args: Array[String]): Unit = (program5 *> program1 *> program3.flatMap(program4)).unsafeRunSync
 }
 
 trait Greeting {
