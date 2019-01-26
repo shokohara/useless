@@ -10,6 +10,8 @@ lazy val seed = (project in file("seed"))
   )
 lazy val lol = (project in file("lol"))
   .settings(
+//    fork in run := true,
+//    connectInput := true,
     resolvers += "jitpack" at "https://jitpack.io",
     libraryDependencies ++= Seq(scalaTest,
       "com.merakianalytics.orianna" % "orianna" % "3.0.4",
