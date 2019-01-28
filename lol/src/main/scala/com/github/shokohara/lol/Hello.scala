@@ -11,6 +11,7 @@ import com.merakianalytics.orianna.types.core.summoner.Summoner
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext
+import scala.io.StdIn
 
 object Hello extends Greeting {
 
@@ -33,29 +34,8 @@ object Hello extends Greeting {
     theirChampions.map(_.getName).zipWithIndex.toList.foreach(println)
   }
 
-//  val program2: IO[Unit] = IO {
-//    println(theirChampions.map(a).mkString(""))
-//  }
-
   val program3: IO[Int] = IO {
-    val a = readInt()
-    a.toInt
-    //    val token = sys.env("LOL_TOKEN")
-    //    val summonerName = sys.env("LOL_NAME")
-    //    val config = new ApiConfig().setKey(token)
-    //    val api = new RiotApi(config)
-    //    val summoner = api.getSummonerByName(JP, summonerName)
-    //    val accountId = summoner.getAccountId
-    //    val summonerId = summoner.getId
-    //
-    ////    println(api)
-    //    println(api.getSummoner(JP, summonerId))
-    //    println(api.getMatchListByAccountId(JP, accountId).getMatches)
-    //    println(Try(api.getActiveGameBySummoner(JP, summonerId)))
-    //    println(Try(api.getChampionMasteryScoresBySummoner(JP,summonerId)))
-    //    println(Try(api.getChampionMasteriesBySummoner(JP,summonerId)))
-    //        val summonerIds = v.getParticipants.asScala.map(_.getSummonerId)
-    //        println(summonerIds)
+    StdIn.readInt()
   }
 
   def program4(i: Int): IO[Unit] = IO {
@@ -91,7 +71,7 @@ object Hello extends Greeting {
   def cs(a: ChampionSpell): String =
     a.getName + lb + (if (a.getRanges.asScala.distinct.length == 1) {
       s"""${a.getDescription}
-        |CD:    ${a.getCooldowns.asScala.map(cd(_)).mkString("/")}
+        |CD:    ${if(a.getCooldowns.asScala.distinct.length==1) a.getCooldowns.asScala.map(cd(_)).mkString("/")}
         |RANGE: ${a.getRanges.asScala.head.toInt.toString}
       """.stripMargin
     } else (a.getRanges.asScala zip a.getCooldowns.asScala).map({ case (range, c) =>
