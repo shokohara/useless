@@ -1,0 +1,2 @@
+GET         /                                   controllers.SlackController.index
+POST        /slack                              controllers.SlackController.index

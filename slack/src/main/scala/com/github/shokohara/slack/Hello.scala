@@ -1,70 +1,80 @@
 package com.github.shokohara.slack
 
-import akka.actor.ActorSystem
+import java.time.{Instant, ZoneId, ZoneOffset, ZonedDateTime}
+
+import cats.data.{EitherT, OptionT}
 import cats.effect._
 import cats.implicits._
-import org.joda.time.DateTime
-import play.api.libs.json._
-import slack.api.{BlockingSlackApiClient, HistoryChunk}
+import pureconfig.generic.auto._
+import com.github.seratch.jslack._
+import com.github.seratch.jslack.api.methods.request.channels._
+import com.github.seratch.jslack.api.methods.request.users.UsersListRequest
+import com.github.seratch.jslack.api.methods.response.channels._
 
-import scala.util.Try
-
-case class ApplicationConfig(token: String, channelName: String, userName: String)
-object ApplicationConfig{
-
-}
-
-case class Message(user: String, ts: DateTime, text: String)
-
-object Message {
-
-  import play.api.libs.json.Json
-
-  implicit object DateTimeReads extends Reads[DateTime] {
-    def reads(json: JsValue) = json match {
-      case JsString(value) => Try {
-        new DateTime(value.split('.').head.toLong * 1000) // "The bit before the . is a unix timestamp, the bit after is a sequence to guarantee uniqueness."
-      }.map(JsSuccess[DateTime](_)).getOrElse(throw new Exception(s"Could not parse a date-time out of $value"))
-      case _ => JsError()
-    }
-  }
-
-  implicit val reads = Json.reads[Message]
-}
+import collection.JavaConverters._
+import cats.implicits._
+import com.github.seratch.jslack.api.methods.SlackApiResponse
+import com.github.seratch.jslack.api.methods.response.users.UsersListResponse
+import com.github.seratch.jslack.api.model.Message
+import com.github.shokohara.slack
+import shapeless.nat._
+import eu.timepit.refined.collection.Size
+import eu.timepit.refined._
+import eu.timepit.refined.collection._
+import com.github.seratch.jslack.Slack
+import scala.util.chaining._
+import eu.timepit.refined._
 
 object Hello extends IOApp {
-  import cats.syntax.apply._
 
-  val r: Resource[IO, ActorSystem] = Resource.make(IO(ActorSystem("slack")))(a => IO(a.terminate()))
-
-  import pureconfig.generic.auto._
   val config = IO(pureconfig.loadConfigOrThrow[ApplicationConfig])
 
-  def toTimestampString(dateTime: DateTime): String = dateTime.getMillis + ".0000"
+//  def toTimestampString(dateTime: DateTime): String = dateTime.getMillis + ".0000
 
-  def a(latest: DateTime)(implicit a: ActorSystem): IO[Option[List[Message]]] = config.map { config =>
-    val client = BlockingSlackApiClient(config.token)
+  def toEither[A <: SlackApiResponse, B, C](a: A, f: A => B, b: A => C) = Either.cond(a.isOk, f(a), b(a))
+
+  def f(applicationConfig: ApplicationConfig): IO[Either[RuntimeException, List[Message]]] = IO {
+    val slack: Slack = Slack.getInstance
     for {
-      u <- client.listUsers().find(_.name === "shopublic")
-      c <- client.listChannels().find(_.name === "random")
-    } yield {
-      val f = (_: HistoryChunk).messages.toList.flatMap(_.asOpt[Message].toList).filter(_.user === u.id)
-      val h = f(client.getChannelHistory(c.id, oldest = toTimestampString(latest).some))
-//      val h = f(client.getChannelHistory(c.id, oldest = toTimestampString(h.sortBy(_.ts.getMillis).head.ts).some))
-//      h.foreach(println)
-//      println(h.sortBy(_.ts.getMillis).head.ts)
-//      h.foreach(println)
-      //      h.foreach(println)
-      h
-    }
+      u <- UsersListRequest
+        .builder().token(applicationConfig.token).build().pipe(slack.methods().usersList)
+        .pipe(a =>
+          toEither(a: UsersListResponse,
+                   (_: UsersListResponse).getMembers,
+                   (_: UsersListResponse).getError.pipe(new RuntimeException(_))))
+        .flatMap(
+          _.asScala
+            .filter(_.getName === applicationConfig.userName).toList.toNel // refined 1
+            .map(_.head)
+            .toRight(new RuntimeException(""))
+        ) // getRealNameかも。重複しないのはどっち？ // 1の長さのリスト
+      c <- ChannelsListRequest
+        .builder().token(applicationConfig.token).build().pipe(slack.methods().channelsList).pipe(a =>
+          toEither(a: ChannelsListResponse,
+                   (_: ChannelsListResponse).getChannels,
+                   (_: ChannelsListResponse).getError.pipe(new RuntimeException(_)))).flatMap(
+          _.asScala.find(_.getName === "random").toRight(new RuntimeException("")))
+      h <- ChannelsHistoryRequest
+        .builder().token(applicationConfig.token).channel(c.getId).build().pipe(slack.methods().channelsHistory)
+        .pipe(a =>
+          toEither(a: ChannelsHistoryResponse,
+                   (_: ChannelsHistoryResponse).getMessages,
+                   (_: ChannelsHistoryResponse).getError.pipe(new RuntimeException(_))))
+
+    } yield h.asScala.toList.map(m2m)
   }
 
-  def run(args: List[String]): IO[ExitCode] =
-    r.use { implicit as =>
-      a(DateTime.now()).flatMap().map(_ => ExitCode.Success)
-    }
-}
+  def m2m(a: com.github.seratch.jslack.api.model.Message): Message =
+    slack.Message(
+      a.getUser, {
+        println(a.getTs)
+        val b = a.getTs.split('.')
+        println(b.toList)
+        // ミリ秒が欠如してる
+        ZonedDateTime.from(Instant.ofEpochSecond(b.head.toLong).atOffset(ZoneOffset.UTC))
+      },
+      a.getText
+    )
 
-trait Greeting {
-  lazy val greeting: String = "hello"
+  def run(args: List[String]): IO[ExitCode] = config.flatMap(f).map(_ => ExitCode.Success)
 }
