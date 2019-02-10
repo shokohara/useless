@@ -37,25 +37,25 @@ object Hello extends IOApp {
     val slack: Slack = Slack.getInstance
     for {
       u <- UsersListRequest
-        .builder().token(applicationConfig.token).build().pipe(slack.methods().usersList)
+        .builder().token(applicationConfig.slackToken).build().pipe(slack.methods().usersList)
         .pipe(a =>
           toEither(a: UsersListResponse,
                    (_: UsersListResponse).getMembers,
                    (_: UsersListResponse).getError.pipe(new RuntimeException(_))))
-        .flatMap(
-          _.asScala
-            .filter(_.getName === applicationConfig.userName).toList.toNel // refined 1
+        .flatMap(a=>
+          a.asScala
+            .filter(_.getName === applicationConfig.slackUserName).toList.toNel // refined 1
             .map(_.head)
-            .toRight(new RuntimeException(""))
+            .toRight(new RuntimeException(a.asScala.toList.map(_.getName).toString))
         ) // getRealNameかも。重複しないのはどっち？ // 1の長さのリスト
       c <- ChannelsListRequest
-        .builder().token(applicationConfig.token).build().pipe(slack.methods().channelsList).pipe(a =>
+        .builder().token(applicationConfig.slackToken).build().pipe(slack.methods().channelsList).pipe(a =>
           toEither(a: ChannelsListResponse,
                    (_: ChannelsListResponse).getChannels,
                    (_: ChannelsListResponse).getError.pipe(new RuntimeException(_)))).flatMap(
           _.asScala.find(_.getName === "random").toRight(new RuntimeException("")))
       h <- ChannelsHistoryRequest
-        .builder().token(applicationConfig.token).channel(c.getId).build().pipe(slack.methods().channelsHistory)
+        .builder().token(applicationConfig.slackToken).channel(c.getId).build().pipe(slack.methods().channelsHistory)
         .pipe(a =>
           toEither(a: ChannelsHistoryResponse,
                    (_: ChannelsHistoryResponse).getMessages,
@@ -76,5 +76,5 @@ object Hello extends IOApp {
       a.getText
     )
 
-  def run(args: List[String]): IO[ExitCode] = config.flatMap(f).map(_ => ExitCode.Success)
+  def run(args: List[String]): IO[ExitCode] = config.flatMap(f).flatMap(_.fold(IO.raiseError, _.traverse_(_.toString.pipe(a=>IO(println(a)))))).map(_=> ExitCode.Success)
 }
