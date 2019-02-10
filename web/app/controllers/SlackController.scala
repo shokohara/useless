@@ -2,8 +2,10 @@ package controllers
 
 import cats.effect.IO
 import com.github.shokohara.slack.{ApplicationConfig, Hello}
+import eu.timepit.refined.types.string.NonEmptyString
 import io.circe.Decoder
 import io.circe.generic.semiauto.deriveDecoder
+import io.circe.refined._
 import io.circe.syntax._
 import play.api.libs.circe.Circe
 import play.api.mvc.{AbstractController, ControllerComponents}
@@ -23,7 +25,7 @@ class SlackController(cc: ControllerComponents)(implicit val ec: ExecutionContex
 }
 
 object SlackController {
-  final case class Request(token: String, channelName: String, userName: String)
+  final case class Request(token: NonEmptyString, channelName: NonEmptyString, userName: NonEmptyString)
 
   object Request {
     implicit val decoder: Decoder[Request] = deriveDecoder

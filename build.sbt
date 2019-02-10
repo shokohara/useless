@@ -9,8 +9,10 @@ lazy val slack = (project in file("slack"))
   .settings(
     libraryDependencies ++= Seq(
       "com.github.seratch" % "jslack" % "1.1.7",
-      "eu.timepit" %% "refined" % "0.9.4",
+      "eu.timepit" %% "refined" % refinedVersion,
+      "eu.timepit" %% "refined-pureconfig" % refinedVersion,
       "com.github.pureconfig" %% "pureconfig" % "0.10.1",
+      "io.chrisdavenport" % "cats-time_2.12" % "0.2.0",
       "org.typelevel" %% "cats-effect" % "1.2.0"
     ) ++ commonLibraryDependencies
   )
@@ -42,6 +44,7 @@ lazy val web = (project in file("web"))
   .dependsOn(slack)
 
 lazy val circeVersion = "0.11.1"
+lazy val refinedVersion = "0.9.4"
 
 lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.0.5" % Test
 
