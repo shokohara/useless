@@ -15,13 +15,13 @@ lazy val slack = (project in file("slack"))
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
       "org.typelevel" %% "kittens" % "1.2.0",
       "io.chrisdavenport" % "cats-time_2.12" % "0.2.0",
-      "org.typelevel" %% "cats-effect" % "1.2.0"
+      "org.typelevel" %% "cats-effect" % "1.2.0",
+      "ch.qos.logback" % "logback-classic" % "1.2.3"
     ) ++ commonLibraryDependencies
   )
-lazy val seed = (project in file("seed"))
-  .settings(
-    libraryDependencies += scalaTest
-  )
+lazy val seed = (project in file("seed")).settings(
+  libraryDependencies += scalaTest
+)
 lazy val lol = (project in file("lol"))
   .settings(commonSettings)
   .settings(
@@ -62,3 +62,5 @@ lazy val commonLibraryDependencies = Seq(
 lazy val commonSettings = Seq(
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.8")
 )
+addCommandAlias("fmt", "; compile:scalafmt; test:scalafmt; scalafmtSbt")
+addCommandAlias("prePR", "; fmt; test")
