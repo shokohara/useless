@@ -12,6 +12,8 @@ lazy val slack = (project in file("slack"))
       "eu.timepit" %% "refined" % refinedVersion,
       "eu.timepit" %% "refined-pureconfig" % refinedVersion,
       "com.github.pureconfig" %% "pureconfig" % "0.10.1",
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
+      "org.typelevel" %% "kittens" % "1.2.0",
       "io.chrisdavenport" % "cats-time_2.12" % "0.2.0",
       "org.typelevel" %% "cats-effect" % "1.2.0"
     ) ++ commonLibraryDependencies

@@ -2,6 +2,7 @@ package com.github.shokohara.slack
 
 import java.time.{Instant, ZoneId, ZoneOffset, ZonedDateTime}
 
+import cats.derived.auto.show._
 import cats.effect._
 import cats.implicits._
 import com.github.seratch.jslack.Slack
@@ -12,6 +13,7 @@ import com.github.seratch.jslack.api.methods.response.channels._
 import com.github.seratch.jslack.api.methods.response.users.UsersListResponse
 import com.github.seratch.jslack.api.model.Channel
 import com.github.shokohara.slack
+import com.typesafe.scalalogging.LazyLogging
 import eu.timepit.refined.auto._
 import io.chrisdavenport.cats.time._
 
@@ -19,7 +21,7 @@ import scala.collection.JavaConverters._
 import scala.util.Try
 import scala.util.chaining._
 
-object Hello extends IOApp {
+object Hello extends IOApp with LazyLogging {
 
   val config = IO(pureconfig.loadConfigOrThrow[ApplicationConfig])
 
@@ -51,6 +53,7 @@ object Hello extends IOApp {
       h <- g(slack, applicationConfig,c,ZonedDateTime.of(2019,1,31,23,59,59,0,ZoneId.of("Asia/Tokyo")) ,Nil).unsafeRunSync()
     } yield h
   }
+
   def g(slack: Slack,
         applicationConfig: ApplicationConfig,
         c: Channel,
@@ -68,8 +71,14 @@ object Hello extends IOApp {
           h.toNel.fold[IO[Either[RuntimeException, List[Message]]]](IO.pure(acc.asRight))(
             nelH =>
               nelH
-                .nonEmptyPartition(zdt => if (zdt.ts < until) zdt.asRight else zdt.asLeft).fold(
-                  _ => IO.pure(acc.asRight),
+                .nonEmptyPartition(zdt => {
+                  logger.warn((zdt.ts < until).show)
+                  if (zdt.ts < until) zdt.asLeft else zdt.asRight
+                }).fold(
+                  left => {
+                    logger.warn(left.map(_.show).mkString_("","\n",""))
+                    IO.pure(acc.asRight)
+                  },
                   n => g(slack, applicationConfig, c, until, acc ++ n.toList),
                   (_, right) => IO.pure((acc ++ right.toList).asRight)
               ))))
@@ -77,10 +86,11 @@ object Hello extends IOApp {
   def m2m(a: com.github.seratch.jslack.api.model.Message): Message =
     slack.Message(
       a.getUser, {
-        println(a.getTs)
+//        println(a.getTs)
         val b = a.getTs.split('.')
-        println(b.toList)
+//        println(b.toList)
         // ミリ秒が欠如してる
+        // テストする
         ZonedDateTime.from(Instant.ofEpochSecond(b.head.toLong).atOffset(ZoneOffset.UTC))
       },
       a.getText
