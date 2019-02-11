@@ -16,7 +16,10 @@ lazy val slack = (project in file("slack"))
       "org.typelevel" %% "kittens" % "1.2.0",
       "io.chrisdavenport" % "cats-time_2.12" % "0.2.0",
       "org.typelevel" %% "cats-effect" % "1.2.0",
-      "ch.qos.logback" % "logback-classic" % "1.2.3"
+      "ch.qos.logback" % "logback-classic" % "1.2.3",
+      "org.tpolecat" %% "doobie-core" % doobieVersion,
+      "org.tpolecat" %% "doobie-postgres" % doobieVersion,
+      "org.tpolecat" %% "doobie-specs2" % doobieVersion
     ) ++ commonLibraryDependencies
   )
 lazy val seed = (project in file("seed")).settings(
@@ -40,13 +43,18 @@ lazy val web = (project in file("web"))
       "io.circe" %% "circe-parser" % circeVersion,
       "io.circe" %% "circe-java8" % circeVersion,
       "io.circe" %% "circe-refined" % circeVersion
-    ) ++ silencers ++ commonLibraryDependencies
+    ) ++ silencers ++ commonLibraryDependencies,
+    dockerBaseImage := "openjdk:8u181-jdk-stretch",
+    daemonUser in Docker := "root",
+    dockerEntrypoint := Seq("/bin/sh", "-c"),
+    dockerCmd := Seq("/opt/docker/bin/web"),
   )
   .enablePlugins(PlayScala)
   .dependsOn(slack)
 
 lazy val circeVersion = "0.11.1"
 lazy val refinedVersion = "0.9.4"
+lazy val doobieVersion = "0.6.0"
 
 lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.0.5" % Test
 
