@@ -8,10 +8,12 @@ import cats.implicits._
 import com.github.seratch.jslack.Slack
 import com.github.seratch.jslack.api.methods.SlackApiResponse
 import com.github.seratch.jslack.api.methods.request.channels._
+import com.github.seratch.jslack.api.methods.request.team.TeamInfoRequest
 import com.github.seratch.jslack.api.methods.request.users.UsersListRequest
 import com.github.seratch.jslack.api.methods.response.channels._
+import com.github.seratch.jslack.api.methods.response.team.TeamInfoResponse
 import com.github.seratch.jslack.api.methods.response.users.UsersListResponse
-import com.github.seratch.jslack.api.model.Channel
+import com.github.seratch.jslack.api.model.{Channel, Team, User}
 import com.github.shokohara.slack
 import com.typesafe.scalalogging.LazyLogging
 import eu.timepit.refined.W
@@ -27,21 +29,25 @@ import scala.util.chaining._
 object Hello extends IOApp with LazyLogging {
 
   val config = IO(pureconfig.loadConfigOrThrow[ApplicationConfig])
-  val zoneId = ZoneId.of("Asia/Tokyo")
+  val zoneId: ZoneId = ZoneId.of("Asia/Tokyo")
 
   def toTimestampString(zonedDateTime: ZonedDateTime): String = (zonedDateTime.toInstant.toEpochMilli / 1000) + ".0000"
 
   def toEither[A <: SlackApiResponse, B, C](a: A, f: A => B, b: A => C): Either[C, B] = Either.cond(a.isOk, f(a), b(a))
 
-  def f(applicationConfig: ApplicationConfig): IO[Either[RuntimeException, List[Message]]] = IO {
+  def f(applicationConfig: ApplicationConfig): IO[Either[RuntimeException, (Team,User,Channel,List[ Message])]] = IO {
     val slack: Slack = Slack.getInstance
     for {
+      t<- slack.methods().teamInfo(TeamInfoRequest.builder.token(applicationConfig.slackToken).build()).pipe(a =>
+        toEither(a: TeamInfoResponse,
+          (_: TeamInfoResponse).getTeam,
+          (_: TeamInfoResponse).getError.pipe(new RuntimeException(_))))
       u <- UsersListRequest
         .builder().token(applicationConfig.slackToken).build().pipe(slack.methods().usersList)
         .pipe(a =>
           toEither(a: UsersListResponse,
-                   (_: UsersListResponse).getMembers,
-                   (_: UsersListResponse).getError.pipe(new RuntimeException(_))))
+            (_: UsersListResponse).getMembers,
+            (_: UsersListResponse).getError.pipe(new RuntimeException(_))))
         .flatMap(
           a =>
             a.asScala
@@ -50,12 +56,12 @@ object Hello extends IOApp with LazyLogging {
               .toRight(new RuntimeException(""))) // getRealNameかも。重複しないのはどっち？ // 1の長さのリスト
       c <- ChannelsListRequest
         .builder().token(applicationConfig.slackToken).build().pipe(slack.methods().channelsList).pipe(a =>
-          toEither(a: ChannelsListResponse,
-                   (_: ChannelsListResponse).getChannels,
-                   (_: ChannelsListResponse).getError.pipe(new RuntimeException(_)))).flatMap(
-          _.asScala.find(_.getName === applicationConfig.slackChannelName).toRight(new RuntimeException("")))
+        toEither(a: ChannelsListResponse,
+          (_: ChannelsListResponse).getChannels,
+          (_: ChannelsListResponse).getError.pipe(new RuntimeException(_)))).flatMap(
+        _.asScala.find(_.getName === applicationConfig.slackChannelName).toRight(new RuntimeException("")))
       h <- g(slack, applicationConfig, c, ZonedDateTime.of(2019, 1, 31, 23, 59, 59, 0, zoneId), Nil).unsafeRunSync()
-    } yield h
+    } yield (t,u,c, h)
   }
 
   val slackCount: Int Refined Closed[W.`0`.T, W.`1000`.T] = 200
@@ -66,78 +72,90 @@ object Hello extends IOApp with LazyLogging {
         until: ZonedDateTime,
         acc: List[Message]): IO[Either[RuntimeException, List[Message]]] =
     IO.fromEither(Try(
-        ChannelsHistoryRequest
-          .builder().token(applicationConfig.slackToken).channel(c.getId).count(slackCount.value)
-          .pipe { b =>
-            logger.debug(acc.length.show)
-            acc.toNel.fold(b)(nel =>
-              b.latest(toTimestampString(nel.map(_.ts).minimum)).oldest(
-                  toTimestampString(nel.map(_.ts).minimum.minusDays(1))))
-          }
-          .build().tap( b => {
-          logger.debug(b.toString)
-          logger.debug(d2d(b.getOldest).toString)
-          logger.debug(d2d(b.getLatest).toString)
-          logger.debug(b.getOldest)
-        }).pipe(slack.methods().channelsHistory)
-          .pipe(a =>
-            toEither(a: ChannelsHistoryResponse,
-                     (_: ChannelsHistoryResponse).getMessages,
-                     (_: ChannelsHistoryResponse).getError.pipe(new RuntimeException(_))))
-          .map(_.asScala.toList.map(m2m).sequence[Either[Throwable, ?], Message])
-    ).toEither.flatten).flatMap { h =>
-        h.fold(
-          a => IO.pure(a.asLeft),
-          h => {
-            logger.debug(h.length.show)
-            h.toNel.fold[IO[Either[RuntimeException, List[Message]]]](IO.pure(acc.asRight))(
-              h =>
-                if (h.forall(a => acc.nonEmpty && acc.exists(m => m === a)))
-                  IO.pure(new RuntimeException("レスポンスボディの要素が重複しました").asLeft)
-                else {
-                  h.nonEmptyPartition(zdt => {
-//                  logger.debug((zdt.ts < until).show)
-                      if (zdt.ts < until) zdt.asLeft else zdt.asRight
-                    }).fold(
-                      left => {
-//                    logger.debug(left.map(_.ts).map(_.show).mkString_("","\n",""))
-                        IO.pure(acc.asRight)
-                      },
-                      n => {
-                        logger.debug((n ++ acc).map(_.ts).maximum.show)
-                        logger.debug((n ++ acc).map(_.ts).minimum.show)
-                        logger.debug("g")
-                        g(slack, applicationConfig, c, until, acc ++ n.toList)
-                      },
-                      (left, right) => {
-                        logger.debug(left.map(_.ts).map(_.show).mkString_("", "\n", ""))
-                        logger.debug(right.map(_.ts).map(_.show).mkString_("", "\n", ""))
-                        IO.pure((acc ++ right.toList).asRight)
-                      }
-                    )
+      ChannelsHistoryRequest
+        .builder().token(applicationConfig.slackToken).channel(c.getId).count(slackCount.value)
+        .pipe { b =>
+          logger.debug(acc.length.show)
+          acc.toNel.fold(b)(nel =>
+            b.latest(toTimestampString(nel.map(_.ts).minimum)).oldest(
+              toTimestampString(nel.map(_.ts).minimum.minusDays(1))))
+        }
+        .build().tap(b => {
+        logger.debug(b.toString)
+        logger.debug(d2d(b.getOldest).toString)
+        logger.debug(d2d(b.getLatest).toString)
+      }).pipe(slack.methods().channelsHistory)
+        .pipe(a =>
+          toEither(a: ChannelsHistoryResponse,
+            (_: ChannelsHistoryResponse).getMessages,
+            (_: ChannelsHistoryResponse).getError.pipe(new RuntimeException(_))))
+        .map(_.asScala.toList.map(m2m).sequence[Either[RuntimeException, ?], Message])
+    ).toEither.joinRight).flatMap { h =>
+      h.fold(
+        a => IO.pure(a.asLeft),
+        h => {
+          logger.debug(h.length.show)
+          h.toNel.fold[IO[Either[RuntimeException, List[Message]]]](IO.pure(acc.asRight))(
+            h =>
+              if (h.forall(a => acc.nonEmpty && acc.exists(m => m === a)))
+                IO.pure(new RuntimeException("レスポンスボディの要素が重複しました").asLeft)
+              else {
+                h.nonEmptyPartition(zdt => {
+                  //                  logger.debug((zdt.ts < until).show)
+                  if (zdt.ts < until) zdt.asLeft else zdt.asRight
+                }).fold(
+                  left => {
+                    //                    logger.debug(left.map(_.ts).map(_.show).mkString_("","\n",""))
+                    IO.pure(acc.asRight)
+                  },
+                  n => {
+                    logger.debug((n ++ acc).map(_.ts).maximum.show)
+                    logger.debug((n ++ acc).map(_.ts).minimum.show)
+                    g(slack, applicationConfig, c, until, acc ++ n.toList)
+                  },
+                  (left, right) => {
+                    logger.debug(left.map(_.ts).map(_.show).mkString_("", "\n", ""))
+                    logger.debug(right.map(_.ts).map(_.show).mkString_("", "\n", ""))
+                    IO.pure((acc ++ right.toList).asRight)
+                  }
+                )
               })
-          }
-        )
-      }
+        }
+      )
+    }
 
-  def m2m(a: com.github.seratch.jslack.api.model.Message): Either[Throwable, Message] =
+  def m2m(a: com.github.seratch.jslack.api.model.Message): Either[RuntimeException, Message] =
     d2d(a.getTs).map(ts => slack.Message(a.getUser, ts, a.getText))
 
 
-  def d2d(a:String): Either[Throwable,ZonedDateTime] = Try{
+  def d2d(a: String): Either[RuntimeException, ZonedDateTime] = try {
     val b = a.split('.')
     //        println(b.toList)
     // ミリ秒が欠如してる
     // テストする
-    ZonedDateTime.from(Instant.ofEpochSecond(b.head.toLong).atOffset(ZoneOffset.UTC)) // TODO
-  }.toEither
+    ZonedDateTime.from(Instant.ofEpochSecond(b.head.toLong).atOffset(ZoneOffset.UTC)).asRight // TODO
+  } catch {
+    case e: RuntimeException => e.asLeft
+  }
 
+//  _.traverse_(m => IO.pure(logger.info(m.ts.show)))
   def run(args: List[String]): IO[ExitCode] =
-    config.flatMap(f).flatMap(_.fold(IO.raiseError, _.traverse_(m => IO.pure(logger.info(m.ts.show))))).map { _ =>
-//    IO {
-//      println(ZonedDateTime.now(ZoneOffset.UTC))
-//      println(ZonedDateTime.now(ZoneOffset.UTC).withZoneSameInstant(zoneId))
-//      println(ZonedDateTime.now(ZoneOffset.UTC).withZoneSameInstant(zoneId).toLocalDateTime)
+      config.flatMap(f).flatMap(_.fold(IO.raiseError, IO.pure)).map { case (t,u,c,h) =>
+      import Doobie._
+      import SlackModel._
+      import doobie.imports._
+//      (drop, create).mapN(_ + _).transact(xa).unsafeRunSync
+        h.filter(_.user === u.getId).map { b =>
+          insert1(SlackModel(t.getDomain, c.getName,u.getId,b.text,b.ts)).run.transact(xa).unsafeRunSync()
+        }
       ExitCode.Success
     }
+//    config.flatMap(f).flatMap(_.fold(IO.raiseError, _.traverse_(m => IO.pure(logger.info(m.ts.show))))).flatMap(_=> Doobie.io2).map { a =>
+//      println(a)
+//      //    IO {
+//      //      println(ZonedDateTime.now(ZoneOffset.UTC))
+//      //      println(ZonedDateTime.now(ZoneOffset.UTC).withZoneSameInstant(zoneId))
+//      //      println(ZonedDateTime.now(ZoneOffset.UTC).withZoneSameInstant(zoneId).toLocalDateTime)
+//      ExitCode.Success
+//    }
 }
