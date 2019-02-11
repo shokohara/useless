@@ -74,13 +74,18 @@ object Hello extends IOApp with LazyLogging {
               b.latest(toTimestampString(nel.map(_.ts).minimum)).oldest(
                   toTimestampString(nel.map(_.ts).minimum.minusDays(1))))
           }
-          .build().tap(b => logger.debug(b.toString)).pipe(slack.methods().channelsHistory)
+          .build().tap( b => {
+          logger.debug(b.toString)
+          logger.debug(d2d(b.getOldest).toString)
+          logger.debug(d2d(b.getLatest).toString)
+          logger.debug(b.getOldest)
+        }).pipe(slack.methods().channelsHistory)
           .pipe(a =>
             toEither(a: ChannelsHistoryResponse,
                      (_: ChannelsHistoryResponse).getMessages,
                      (_: ChannelsHistoryResponse).getError.pipe(new RuntimeException(_))))
-          .map(_.asScala.toList.map(m2m))
-    ).toEither).flatMap { h =>
+          .map(_.asScala.toList.map(m2m).sequence[Either[Throwable, ?], Message])
+    ).toEither.flatten).flatMap { h =>
         h.fold(
           a => IO.pure(a.asLeft),
           h => {
@@ -115,18 +120,17 @@ object Hello extends IOApp with LazyLogging {
         )
       }
 
-  def m2m(a: com.github.seratch.jslack.api.model.Message): Message =
-    slack.Message(
-      a.getUser, {
-//        println(a.getTs)
-        val b = a.getTs.split('.')
-//        println(b.toList)
-        // ミリ秒が欠如してる
-        // テストする
-        ZonedDateTime.from(Instant.ofEpochSecond(b.head.toLong).atOffset(ZoneOffset.UTC))
-      },
-      a.getText
-    )
+  def m2m(a: com.github.seratch.jslack.api.model.Message): Either[Throwable, Message] =
+    d2d(a.getTs).map(ts => slack.Message(a.getUser, ts, a.getText))
+
+
+  def d2d(a:String): Either[Throwable,ZonedDateTime] = Try{
+    val b = a.split('.')
+    //        println(b.toList)
+    // ミリ秒が欠如してる
+    // テストする
+    ZonedDateTime.from(Instant.ofEpochSecond(b.head.toLong).atOffset(ZoneOffset.UTC)) // TODO
+  }.toEither
 
   def run(args: List[String]): IO[ExitCode] =
     config.flatMap(f).flatMap(_.fold(IO.raiseError, _.traverse_(m => IO.pure(logger.info(m.ts.show))))).map { _ =>
