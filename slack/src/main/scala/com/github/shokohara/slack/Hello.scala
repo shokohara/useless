@@ -27,6 +27,7 @@ import scala.util.chaining._
 object Hello extends IOApp with LazyLogging {
 
   val config = IO(pureconfig.loadConfigOrThrow[ApplicationConfig])
+  val zoneId = ZoneId.of("Asia/Tokyo")
 
   def toTimestampString(zonedDateTime: ZonedDateTime): String = (zonedDateTime.toInstant.toEpochMilli / 1000) + ".0000"
 
@@ -53,8 +54,7 @@ object Hello extends IOApp with LazyLogging {
                    (_: ChannelsListResponse).getChannels,
                    (_: ChannelsListResponse).getError.pipe(new RuntimeException(_)))).flatMap(
           _.asScala.find(_.getName === applicationConfig.slackChannelName).toRight(new RuntimeException("")))
-      h <- g(slack, applicationConfig, c, ZonedDateTime.of(2019, 1, 31, 23, 59, 59, 0, ZoneId.of("Asia/Tokyo")), Nil)
-        .unsafeRunSync()
+      h <- g(slack, applicationConfig, c, ZonedDateTime.of(2019, 1, 31, 23, 59, 59, 0, zoneId), Nil).unsafeRunSync()
     } yield h
   }
 
@@ -65,8 +65,7 @@ object Hello extends IOApp with LazyLogging {
         c: Channel,
         until: ZonedDateTime,
         acc: List[Message]): IO[Either[RuntimeException, List[Message]]] =
-    IO.fromEither(Try {
-        logger.debug("sob")
+    IO.fromEither(Try(
         ChannelsHistoryRequest
           .builder().token(applicationConfig.slackToken).channel(c.getId).count(slackCount.value)
           .pipe { b =>
@@ -81,9 +80,7 @@ object Hello extends IOApp with LazyLogging {
                      (_: ChannelsHistoryResponse).getMessages,
                      (_: ChannelsHistoryResponse).getError.pipe(new RuntimeException(_))))
           .map(_.asScala.toList.map(m2m))
-      }.toEither)
-      .flatMap { h =>
-        logger.debug("sob")
+    ).toEither).flatMap { h =>
         h.fold(
           a => IO.pure(a.asLeft),
           h => {
@@ -132,7 +129,11 @@ object Hello extends IOApp with LazyLogging {
     )
 
   def run(args: List[String]): IO[ExitCode] =
-    config
-      .flatMap(f).flatMap(_.fold(IO.raiseError, _.traverse_(m => IO.pure(logger.info(m.ts.show)))))
-      .map(_ => ExitCode.Success)
+    config.flatMap(f).flatMap(_.fold(IO.raiseError, _.traverse_(m => IO.pure(logger.info(m.ts.show))))).map { _ =>
+//    IO {
+//      println(ZonedDateTime.now(ZoneOffset.UTC))
+//      println(ZonedDateTime.now(ZoneOffset.UTC).withZoneSameInstant(zoneId))
+//      println(ZonedDateTime.now(ZoneOffset.UTC).withZoneSameInstant(zoneId).toLocalDateTime)
+      ExitCode.Success
+    }
 }
