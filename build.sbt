@@ -7,6 +7,7 @@ lazy val root = (project in file(".")).aggregate(seed, lol, slack, web)
 lazy val slack = (project in file("slack"))
   .settings(commonSettings)
   .settings(
+    scalacOptions +=  "-Ypartial-unification",
     libraryDependencies ++= Seq(
       "com.github.seratch" % "jslack" % "1.1.7",
       "eu.timepit" %% "refined" % refinedVersion,
