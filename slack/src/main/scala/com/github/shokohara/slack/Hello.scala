@@ -126,7 +126,7 @@ object Hello extends IOApp with LazyLogging {
       ExitCode.Success
     }
 
-  def showLatestSummary(messages: NonEmptyList[Message], user: User): Either[RuntimeException, Summary] =
+  def latestSummary(messages: NonEmptyList[Message], user: User): Either[RuntimeException, Summary] =
     for {
       myMessages <- messages
         .filter(_.user === user.getId).toNel
@@ -136,30 +136,62 @@ object Hello extends IOApp with LazyLogging {
         .withSecond(0).withNano(0)
       adts <- myMessages
         .filter(_.ts > latestDate).toNel.toRight(new RuntimeException(s"$latestDate のメッセージが存在しません"))
-        .flatMap(
-          _.map(_.text.pipe(stringToAdt)).pipe(f_).leftMap(_.mkString_("", "\n", "").pipe(new RuntimeException(_))))
+        .flatMap(_.map(stringToAdt).pipe(f_).leftMap(_.mkString_("", "\n", "").pipe(new RuntimeException(_))))
       summary <- adtsToSummary(adts.toNonEmptyList).toEither
         .leftMap(_.mkString_("", "\n", "").pipe(new RuntimeException(_)))
     } yield summary
 
-  def stringToAdt(a: String): Either[String, Adt] = a match {
-    case "open"       => Open.asRight
-    case "afk" | "qk" => Afk.asRight
-    case "back"       => Back.asRight
-    case "close"      => Close.asRight
-    case _            => s"${a}を${classOf[Adt].getName}に変換できません".asLeft
-  }
+  def stringToAdt(a: Message): Either[String, Adt] =
+    if (a.text === "open") Open(a.ts).asRight
+    else if (a.text === "afk" || a.text === "qk") Afk(a.ts).asRight
+    else if (a.text === "back") Back(a.ts).asRight
+    else if (a.text === "close") Close(a.ts).asRight
+    else s"${a}を${classOf[Adt].getName}に変換できません".asLeft
 
   def f_(a: NonEmptyList[Either[String, Adt]]): Either[NonEmptyChain[String], NonEmptyChain[Adt]] =
     a.reduceLeftM(_.bimap(NonEmptyChain.one, NonEmptyChain.one))((b, m) => m.bimap(NonEmptyChain.one, b :+ _))
 
-  def adtsToSummary(adts: NonEmptyList[Adt]): ValidatedNel[String, Summary] = ???
+  def adtsToSummary(adts: NonEmptyList[Adt]): ValidatedNel[String, Summary] =
+    if (adts.filter(isOpen).length =!= 1)
+      "Openが複数存在します or Openが0です".invalidNel
+    else if (adts.filter(isClose).length =!= 1)
+      "Closeが複数存在します or Closeが0です".invalidNel
+    else if (adts.count(isAfk) === adts.count(isBack) && adts.count(isAfk) === adts.count(isBack) + 1)
+      Summary(
+        open = adts.filter(isOpen).head.ts,
+        close = adts.filter(isOpen).head.ts,
+        restingDuration = adts.filter(a => isOpen(a) || isBack(a)).sortBy(_.ts).pipe(_ => ???),
+        workingDuration = ???
+      ).validNel
+    else s"Afkの回数とBackの回数が不正です Afk: ${adts.count(isAfk)} Back: ${adts.count(isBack)}".invalidNel
 
-  case class Summary(open: ZonedDateTime, cloes: ZonedDateTime, restingDuration: Duration, workingDuration: Duration)
+  case class Summary(open: ZonedDateTime, close: ZonedDateTime, restingDuration: Duration, workingDuration: Duration)
 
-  sealed trait Adt
-  object Open extends Adt
-  object Afk extends Adt
-  object Back extends Adt
-  object Close extends Adt
+  val isOpen: Adt => Boolean = (_: Adt) match {
+    case Open(_) => true
+    case _       => false
+  }
+
+  val isAfk: Adt => Boolean = (_: Adt) match {
+    case Afk(_) => true
+    case _      => false
+  }
+
+  val isBack: Adt => Boolean = (_: Adt) match {
+    case Back(_) => true
+    case _       => false
+  }
+
+  val isClose: Adt => Boolean = (_: Adt) match {
+    case Close(_) => true
+    case _        => false
+  }
+
+  sealed abstract class Adt {
+    def ts: ZonedDateTime
+  }
+  case class Open(ts: ZonedDateTime) extends Adt
+  case class Afk(ts: ZonedDateTime) extends Adt
+  case class Back(ts: ZonedDateTime) extends Adt
+  case class Close(ts: ZonedDateTime) extends Adt
 }
