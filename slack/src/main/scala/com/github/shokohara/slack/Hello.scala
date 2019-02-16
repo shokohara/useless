@@ -149,7 +149,7 @@ object Hello extends IOApp with LazyLogging {
 
   def stringToAdt(a: Message): Either[String, Adt] =
     if (a.text === "open") Open(a.ts).asRight
-    else if (a.text.startsWith("opend at "))
+    else if (a.text.startsWith("opened at "))
       (try {
         ZonedDateTime
           .parse(a.text.reverse.takeWhile(_.isSpaceChar).reverse, DateTimeFormatter.ofPattern("HH:mm")).asRight
