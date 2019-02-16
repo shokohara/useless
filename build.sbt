@@ -7,6 +7,7 @@ lazy val root = (project in file(".")).aggregate(seed, lol, slack, web)
 lazy val slack = (project in file("slack"))
   .settings(commonSettings)
   .settings(
+    scalacOptions +=  "-Ypartial-unification",
     libraryDependencies ++= Seq(
       "com.github.seratch" % "jslack" % "1.1.7",
       "eu.timepit" %% "refined" % refinedVersion,
@@ -36,6 +37,7 @@ lazy val web = (project in file("web"))
   .settings(
     libraryDependencies ++= Seq(
       scalaTest,
+      "be.venneborg" %% "play26-refined" % "0.3.0",
       "com.softwaremill.macwire" %% "macros" % "2.3.1" % Provided,
       "com.dripower" %% "play-circe" % "2711.0",
       "io.circe" %% "circe-core" % circeVersion,
@@ -44,6 +46,12 @@ lazy val web = (project in file("web"))
       "io.circe" %% "circe-java8" % circeVersion,
       "io.circe" %% "circe-refined" % circeVersion
     ) ++ silencers ++ commonLibraryDependencies,
+    routesImport ++= Seq(
+      "be.venneborg.refined.play.RefinedPathBinders._",
+      "be.venneborg.refined.play.RefinedQueryBinders._",
+      "com.github.shokohara.playextra.QueryStringBindable._",
+      "eu.timepit.refined.types.string._"
+    ),
     dockerBaseImage := "openjdk:8u181-jdk-stretch",
     daemonUser in Docker := "root",
     dockerEntrypoint := Seq("/bin/sh", "-c"),
