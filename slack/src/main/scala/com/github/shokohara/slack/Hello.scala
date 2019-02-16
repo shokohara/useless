@@ -1,6 +1,7 @@
 package com.github.shokohara.slack
 
 import java.time._
+import java.time.format.DateTimeFormatter
 
 import cats.data.{NonEmptyChain, NonEmptyList, ValidatedNel}
 import cats.derived.auto.eq._
@@ -37,7 +38,7 @@ object Hello extends IOApp with LazyLogging {
       Either.cond(a.isOk, a, new RuntimeException(a.getError))
   }
 
-  def f(applicationConfig: ApplicationConfig): IO[Either[RuntimeException, List[Message]]] = IO {
+  def f(applicationConfig: ApplicationConfig): IO[Either[RuntimeException, (NonEmptyList[Message], User)]] = IO {
     val slack: Slack = Slack.getInstance
     for {
       u <- UsersListRequest
@@ -51,7 +52,9 @@ object Hello extends IOApp with LazyLogging {
         .builder().token(applicationConfig.slackToken).build().pipe(slack.methods().channelsList).toEither.flatMap(
           _.getChannels.asScala
             .find(_.getName === applicationConfig.slackChannelName).toRight(new RuntimeException("")))
-      h <- g(slack, applicationConfig, c, ZonedDateTime.of(2019, 1, 31, 23, 59, 59, 0, zoneId), Nil).unsafeRunSync()
+      h <- g(slack, applicationConfig, c, ZonedDateTime.of(2019, 1, 31, 23, 59, 59, 0, zoneId), Nil)
+        .unsafeRunSync()
+        .flatMap(_.toNel.map(a => (a, u)).toRight(new RuntimeException("メッセージが０件です")))
     } yield h
   }
 
@@ -118,13 +121,16 @@ object Hello extends IOApp with LazyLogging {
     }
 
   def run(args: List[String]): IO[ExitCode] =
-    config.flatMap(f).flatMap(_.fold(IO.raiseError, _.traverse_(m => IO.pure(logger.info(m.ts.show))))).map { _ =>
+    config
+      .flatMap(f).flatMap(_.fold(IO.raiseError, { case (list, u) => IO.fromEither(latestSummary(list.toNel.get, u)) })).map {
+        _ =>
+//    config.flatMap(f).flatMap(_.fold(IO.raiseError, _.traverse_(m => IO.pure(logger.info(m.ts.show))))).map { _ =>
 //    IO {
 //      println(ZonedDateTime.now(ZoneOffset.UTC))
 //      println(ZonedDateTime.now(ZoneOffset.UTC).withZoneSameInstant(zoneId))
 //      println(ZonedDateTime.now(ZoneOffset.UTC).withZoneSameInstant(zoneId).toLocalDateTime)
-      ExitCode.Success
-    }
+          ExitCode.Success
+      }
 
   def latestSummary(messages: NonEmptyList[Message], user: User): Either[RuntimeException, Summary] =
     for {
@@ -143,6 +149,15 @@ object Hello extends IOApp with LazyLogging {
 
   def stringToAdt(a: Message): Either[String, Adt] =
     if (a.text === "open") Open(a.ts).asRight
+    else if (a.text.startsWith("opend at "))
+      (try {
+        ZonedDateTime
+          .parse(a.text.reverse.takeWhile(_.isSpaceChar).reverse, DateTimeFormatter.ofPattern("HH:mm")).asRight
+      } catch { case e: RuntimeException => e.getMessage.asLeft }).map(
+        d =>
+          Open(
+            d.withYear(a.ts.getYear).withMonth(a.ts.getMonthValue).withDayOfMonth(a.ts.getDayOfMonth)
+              .withZoneSameLocal(zoneId)))
     else if (a.text === "afk" || a.text === "qk") Afk(a.ts).asRight
     else if (a.text === "back") Back(a.ts).asRight
     else if (a.text === "close") Close(a.ts).asRight
@@ -153,15 +168,16 @@ object Hello extends IOApp with LazyLogging {
 
   def adtsToSummary(adts: NonEmptyList[Adt]): ValidatedNel[String, Summary] =
     if (adts.filter(isOpen).length =!= 1)
-      "Openが複数存在します or Openが0です".invalidNel
-    else if (adts.filter(isClose).length =!= 1)
+      "Openが複数存在します".invalidNel
+    else if (adts.count(isClose) > 1)
       "Closeが複数存在します or Closeが0です".invalidNel
     else if (adts.count(isAfk) === adts.count(isBack) && adts.count(isAfk) === adts.count(isBack) + 1)
       Summary(
         open = adts.filter(isOpen).head.ts,
         close = adts.filter(isOpen).head.ts,
-        restingDuration = adts.filter(a => isOpen(a) || isBack(a)).sortBy(_.ts).pipe(_ => ???),
-        workingDuration = ???
+        restingDuration = Duration.ZERO,
+//          adts.filter(a => isOpen(a) || isBack(a)).sortBy(_.ts).pipe(_ => ???),
+        workingDuration = Duration.ZERO,
       ).validNel
     else s"Afkの回数とBackの回数が不正です Afk: ${adts.count(isAfk)} Back: ${adts.count(isBack)}".invalidNel
 
