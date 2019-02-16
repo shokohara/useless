@@ -46,6 +46,13 @@ lazy val web = (project in file("web"))
       "io.circe" %% "circe-java8" % circeVersion,
       "io.circe" %% "circe-refined" % circeVersion
     ) ++ silencers ++ commonLibraryDependencies,
+    buildInfoKeys := Seq[BuildInfoKey](
+      "gitHeadCommit" -> git.gitHeadCommit.value.getOrElse(""),
+      "gitHeadCommitDate" -> git.gitHeadCommitDate.value.getOrElse(""),
+      "gitHeadMessage" -> git.gitHeadMessage.value.getOrElse(""),
+      "gitBranch" -> git.gitCurrentBranch.value
+    ),
+    buildInfoOptions += BuildInfoOption.ToMap,
     routesImport ++= Seq(
       "be.venneborg.refined.play.RefinedPathBinders._",
       "be.venneborg.refined.play.RefinedQueryBinders._",
@@ -57,6 +64,7 @@ lazy val web = (project in file("web"))
     dockerEntrypoint := Seq("/bin/sh", "-c"),
     dockerCmd := Seq("/opt/docker/bin/web"),
   )
+  .enablePlugins(BuildInfoPlugin)
   .enablePlugins(PlayScala)
   .dependsOn(slack)
 

@@ -1,3 +1,4 @@
 GET         /                                   controllers.SlackController.index
 GET         /slack                              controllers.SlackController.index2(token: eu.timepit.refined.types.string.NonEmptyString, channelName: eu.timepit.refined.types.string.NonEmptyString, userName: eu.timepit.refined.types.string.NonEmptyString, localDate: java.time.LocalDate)
 POST        /slack                              controllers.SlackController.index
+GET         /buildInfo                          controllers.BuildInfoController.index
