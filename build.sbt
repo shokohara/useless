@@ -49,6 +49,7 @@ lazy val web = (project in file("web"))
     routesImport ++= Seq(
       "be.venneborg.refined.play.RefinedPathBinders._",
       "be.venneborg.refined.play.RefinedQueryBinders._",
+      "com.github.shokohara.playextra.QueryStringBindable._",
       "eu.timepit.refined.types.string._"
     ),
     dockerBaseImage := "openjdk:8u181-jdk-stretch",

@@ -1,5 +1,7 @@
 package controllers
 
+import java.time.{LocalDate, ZoneId}
+
 import cats.effect.IO
 import com.github.shokohara.slack.{ApplicationConfig, Hello}
 import eu.timepit.refined.types.string.NonEmptyString
@@ -20,19 +22,27 @@ class SlackController(cc: ControllerComponents)(implicit val ec: ExecutionContex
   def index: Action[Request] = Action.async(circe.json[Request]) { request =>
     import io.circe.generic.auto._
     ApplicationConfig(request.body.token, request.body.channelName, request.body.userName)
-      .pipe(Hello.f).pipe(_.flatMap(_.fold(IO.raiseError, IO.pure)).unsafeToFuture().map(_.asJson).map(Ok(_)))
+      .pipe(Hello.toSummary(_, request.body.localDate.atStartOfDay(zoneId))).pipe(
+        _.flatMap(_.fold(IO.raiseError, IO.pure)).unsafeToFuture().map(_.asJson).map(Ok(_)))
   }
 
-  def index2(token: NonEmptyString, channelName: NonEmptyString, userName: NonEmptyString): Action[AnyContent] =
-    Action.async {
-      import io.circe.generic.auto._
-      ApplicationConfig(token, channelName, userName)
-        .pipe(Hello.f).pipe(_.flatMap(_.fold(IO.raiseError, IO.pure)).unsafeToFuture().map(_.asJson).map(Ok(_)))
-    }
+  def index2(token: NonEmptyString,
+             channelName: NonEmptyString,
+             userName: NonEmptyString,
+             localDate: LocalDate): Action[AnyContent] = Action.async {
+    import io.circe.generic.auto._
+    Hello
+      .toSummary(ApplicationConfig(token, channelName, userName), localDate.atStartOfDay(zoneId)).pipe(
+        _.flatMap(_.fold(IO.raiseError, IO.pure)).unsafeToFuture().map(_.asJson).map(Ok(_)))
+  }
 }
 
 object SlackController {
-  final case class Request(token: NonEmptyString, channelName: NonEmptyString, userName: NonEmptyString)
+  val zoneId: ZoneId = ZoneId.of("Asia/Tokyo")
+  final case class Request(token: NonEmptyString,
+                           channelName: NonEmptyString,
+                           userName: NonEmptyString,
+                           localDate: LocalDate)
 
   object Request {
     implicit val decoder: Decoder[Request] = deriveDecoder
