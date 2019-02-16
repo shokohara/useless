@@ -167,10 +167,14 @@ object Hello extends IOApp with LazyLogging {
     a.reduceLeftM(_.bimap(NonEmptyChain.one, NonEmptyChain.one))((b, m) => m.bimap(NonEmptyChain.one, b :+ _))
 
   def adtsToSummary(adts: NonEmptyList[Adt]): ValidatedNel[String, Summary] =
-    if (adts.filter(isOpen).length =!= 1)
+    if (adts.filter(isOpen).isEmpty)
+      "Openが0です".invalidNel
+    else if (adts.filter(isOpen).length =!= 1)
       "Openが複数存在します".invalidNel
+    else if (adts.count(isClose).isEmpty)
+      "Closeが0です".invalidNel
     else if (adts.count(isClose) > 1)
-      "Closeが複数存在します or Closeが0です".invalidNel
+      "Closeが複数存在します".invalidNel
     else if (adts.count(isAfk) === adts.count(isBack) && adts.count(isAfk) === adts.count(isBack) + 1)
       Summary(
         open = adts.filter(isOpen).head.ts,
