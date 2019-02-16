@@ -23,12 +23,15 @@ jobs:
       - run: cat /dev/null | sbt test
   deploy:
     machine:
-      image: circleci/classic:edge
+      image: circleci/openjdk:8-jdk
     steps:
       - checkout
       - run:
           name: setup
           command: ./.circleci/setup_heroku.sh
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "build.sbt" }}
       - run:
           name: deploy
           command: ./heroku.sh
