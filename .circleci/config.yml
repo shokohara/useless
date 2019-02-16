@@ -22,6 +22,8 @@ jobs:
           key: v1-dependencies--{{ checksum "build.sbt" }}
       - run: cat /dev/null | sbt test
   deploy:
+    machine:
+      image: circleci/classic:edge
     steps:
       - checkout
       - run:
