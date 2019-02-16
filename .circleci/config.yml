@@ -26,7 +26,7 @@ jobs:
             - checkout
             - run:
                 name: setup
-                command: bash .circleci/setup_heroku.sh
+                command: ./.circleci/setup_heroku.sh
             - run:
                 name: deploy
                 command: ./heroku.sh
