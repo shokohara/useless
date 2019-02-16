@@ -32,3 +32,11 @@ jobs:
       - run:
           name: deploy
           command: ./heroku.sh
+workflows:
+  version: 2
+  build-deploy:
+    jobs:
+      - build
+      - deploy:
+          requires:
+            - build
