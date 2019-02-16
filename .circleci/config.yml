@@ -21,25 +21,9 @@ jobs:
             - ~/.m2
           key: v1-dependencies--{{ checksum "build.sbt" }}
       - run: cat /dev/null | sbt test
-  deploy:
-    machine:
-      image: circleci/openjdk:8-jdk
-    steps:
-      - checkout
       - run:
-          name: setup
+          name: deploy setup
           command: ./.circleci/setup_heroku.sh
-      - restore_cache:
-          keys:
-            - v1-dependencies-{{ checksum "build.sbt" }}
       - run:
           name: deploy
           command: ./heroku.sh
-workflows:
-  version: 2
-  build-deploy:
-    jobs:
-      - build
-      - deploy:
-          requires:
-            - build
