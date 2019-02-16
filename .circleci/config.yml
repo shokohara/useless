@@ -21,12 +21,12 @@ jobs:
             - ~/.m2
           key: v1-dependencies--{{ checksum "build.sbt" }}
       - run: cat /dev/null | sbt test
-      - deploy:
-          steps:
-            - checkout
-            - run:
-                name: setup
-                command: ./.circleci/setup_heroku.sh
-            - run:
-                name: deploy
-                command: ./heroku.sh
+  deploy:
+    steps:
+      - checkout
+      - run:
+          name: setup
+          command: ./.circleci/setup_heroku.sh
+      - run:
+          name: deploy
+          command: ./heroku.sh
