@@ -1,0 +1,29 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/openjdk:8-jdk
+    working_directory: ~/repo
+    environment:
+      JVM_OPTS: -Xmx3200m
+      TERM: dumb
+    steps:
+      - setup_remote_docker:
+          version: 17.11.0-ce
+          docker_layer_caching: true
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "build.sbt" }}
+      - run: cat /dev/null | sbt test:compile
+      - save_cache:
+          paths:
+            - ~/.m2
+          key: v1-dependencies--{{ checksum "build.sbt" }}
+      - run: cat /dev/null | sbt test
+      - run:
+          name: deploy setup
+          command: ./.circleci/setup_heroku.sh
+      - run:
+          name: deploy
+          command: ./deploy.sh
