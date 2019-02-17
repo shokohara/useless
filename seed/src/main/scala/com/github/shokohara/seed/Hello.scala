@@ -1,9 +1,8 @@
 package com.github.shokohara.seed
 
-object Hello extends Greeting with App {
-  println(greeting)
-}
+import github4s.Github
+import github4s.jvm.Implicits._
 
-trait Greeting {
-  lazy val greeting: String = "hello"
+object Hello extends IOApp {
+  def run(args: List[String]): IO[ExitCode] = {}
 }
