@@ -26,4 +26,4 @@ jobs:
           command: ./.circleci/setup_heroku.sh
       - run:
           name: deploy
-          command: ./heroku.sh
+          command: ./deploy.sh
