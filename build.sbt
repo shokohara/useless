@@ -33,7 +33,8 @@ lazy val lol = (project in file("lol"))
 //    connectInput := true,
     resolvers += "jitpack" at "https://jitpack.io",
     libraryDependencies ++= Seq(scalaTest,
-      "com.merakianalytics.orianna" % "orianna" % "3.0.4",
+      "com.merakianalytics.orianna" % "orianna" % "4.0.0-rc1",
+      "ch.qos.logback" % "logback-classic" % "1.2.3",
       "com.github.taycaldwell" % "riot-api-java" % "4.1.0",
       "org.typelevel" %% "cats-effect" % "1.2.0")
   )
