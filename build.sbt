@@ -12,9 +12,9 @@ lazy val slack = (project in file("slack"))
       "com.github.seratch" % "jslack" % "1.1.7",
       "eu.timepit" %% "refined" % refinedVersion,
       "eu.timepit" %% "refined-pureconfig" % refinedVersion,
-      "com.github.pureconfig" %% "pureconfig" % "0.10.1",
+      "com.github.pureconfig" %% "pureconfig" % "0.10.2",
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
-      "org.typelevel" %% "kittens" % "1.2.0",
+      "org.typelevel" %% "kittens" % "1.2.1",
       "io.chrisdavenport" % "cats-time_2.12" % "0.2.0",
       "org.typelevel" %% "cats-effect" % "1.2.0",
       "ch.qos.logback" % "logback-classic" % "1.2.3",
@@ -75,7 +75,7 @@ lazy val doobieVersion = "0.6.0"
 lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.0.5" % Test
 
 lazy val silencers = {
-  val version = "1.3.0"
+  val version = "1.3.1"
   "com.github.ghik" %% "silencer-lib" % version % Provided ::
     compilerPlugin("com.github.ghik" %% "silencer-plugin" % version) :: Nil
 }
@@ -84,7 +84,7 @@ lazy val commonLibraryDependencies = Seq(
   "com.github.bigwheel" %% "util-backports" % "1.1"
 )
 lazy val commonSettings = Seq(
-  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.8")
+  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")
 )
 addCommandAlias("fmt", "; compile:scalafmt; test:scalafmt; scalafmtSbt")
 addCommandAlias("prePR", "; fmt; test")
