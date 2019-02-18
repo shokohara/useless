@@ -27,3 +27,6 @@ jobs:
       - run:
           name: deploy
           command: ./deploy.sh
+    filters:
+      branches:
+        only: master
