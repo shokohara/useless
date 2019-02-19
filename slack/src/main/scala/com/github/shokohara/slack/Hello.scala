@@ -135,7 +135,7 @@ object Hello extends IOApp with LazyLogging {
               list.toNel
                 .toRight(new RuntimeException("メッセージが存在しません"))
                 .flatMap(nel =>
-                  latestSummary(nel, u).map(println).leftFlatMap { e =>
+                  latestSummary(nel, u).map(a => println(a.toLocal)).leftFlatMap { e =>
                     logger.error("", e)
                     latestWorkingDuration(nel, u, ZonedDateTime.now(zoneId).some).map { d =>
                       println("Working: " + d.toString)
@@ -165,7 +165,7 @@ object Hello extends IOApp with LazyLogging {
 
   def latestWorkingDuration(messages: NonEmptyList[Message],
                             user: User,
-                            now: Option[ZonedDateTime]): Either[RuntimeException, Duration] =
+                            now: Option[ZonedDateTime]): Either[RuntimeException, (Duration, Duration)] =
     for {
       myMessages <- messages
         .filter(_.user === user.getId).toNel
@@ -205,7 +205,8 @@ object Hello extends IOApp with LazyLogging {
 //    a.reduceLeftM(_.bimap(NonEmptyChain.one, NonEmptyChain.one).toIor)((b, m) =>
 //      m.bimap(NonEmptyChain.one, b :+ _).toIor)
 
-  def adtsToWorkingDuration(adts: NonEmptyList[Adt], now: Option[ZonedDateTime]): Either[RuntimeException, Duration] = {
+  def adtsToWorkingDuration(adts: NonEmptyList[Adt],
+                            now: Option[ZonedDateTime]): Either[RuntimeException, (Duration, Duration)] = {
     logger.debug(adts.toString)
     adts.filter(isOpen).toNel.toRight(new RuntimeException("Openが0です")).flatMap { opens =>
       if (opens.length > 1)
@@ -230,12 +231,12 @@ object Hello extends IOApp with LazyLogging {
               }
           }.map(_._1).flatMap { resting =>
             logger.debug(s"休憩時間: $resting")
+            val open = adts.filter(isOpen).head.ts
             adts.sortBy(_.ts).last match {
-              case Back(_) =>
-                Duration.between(now.get, adts.filter(isOpen).head.ts).asRight: Either[RuntimeException, Duration]
-              case Afk(ts) =>
-                Duration.between(ts, adts.filter(isOpen).head.ts).asRight: Either[RuntimeException, Duration]
-              case _ => new RuntimeException("").asLeft: Either[RuntimeException, Duration]
+              case Back(_)   => (resting, Duration.between(now.get, open).abs().minus(resting)).asRight
+              case Afk(ts)   => (resting, Duration.between(ts, open).abs().minus(resting)).asRight
+              case Close(ts) => (resting, Duration.between(ts, open).abs().minus(resting)).asRight
+              case _         => new RuntimeException("").asLeft
             }
           }
       } else
@@ -253,15 +254,17 @@ object Hello extends IOApp with LazyLogging {
       else if (adts.count(isClose) > 1)
         new RuntimeException("Closeが複数存在します").asLeft
       else if (adts.count(isAfk) === adts.count(isBack) || adts.count(isAfk) === adts.count(isBack) + 1)
-        Summary(
-          open = adts.filter(isOpen).head.ts,
-          close = adts.filter(isClose).head.ts,
-          restingDuration = Duration.ZERO,
-          //          adts.filter(a => isOpen(a) || isBack(a)).sortBy(_.ts).pipe(_ => ???),
-          workingDuration = Duration.ZERO,
-          dayOfWeek = opens.head.ts.toLocalDate.getDayOfWeek,
-          holiday = opens.head.ts.toLocalDate.holidayName
-        ).asRight
+        adtsToWorkingDuration(adts, None).map({
+          case (r, w) =>
+            Summary(
+              open = adts.filter(isOpen).head.ts,
+              close = adts.filter(isClose).head.ts,
+              restingDuration = r,
+              workingDuration = w,
+              dayOfWeek = opens.head.ts.toLocalDate.getDayOfWeek,
+              holiday = opens.head.ts.toLocalDate.holidayName
+            )
+        }): Either[RuntimeException, Summary]
       else new RuntimeException(s"Afkの回数とBackの回数が不正です Afk: ${adts.count(isAfk)} Back: ${adts.count(isBack)}").asLeft
     }
   }
@@ -271,7 +274,24 @@ object Hello extends IOApp with LazyLogging {
                      restingDuration: Duration,
                      workingDuration: Duration,
                      dayOfWeek: DayOfWeek,
-                     holiday: Option[String])
+                     holiday: Option[String]) {
+
+    def toLocal = SummaryLocal(
+      open = open.withZoneSameInstant(zoneId).toLocalDateTime,
+      close = close.withZoneSameInstant(zoneId).toLocalDateTime,
+      restingTime = LocalTime.of(0, 0).plus(restingDuration),
+      workingTime = LocalTime.of(0, 0).plus(workingDuration),
+      dayOfWeek = dayOfWeek,
+      holiday = holiday
+    )
+  }
+
+  case class SummaryLocal(open: LocalDateTime,
+                          close: LocalDateTime,
+                          restingTime: LocalTime,
+                          workingTime: LocalTime,
+                          dayOfWeek: DayOfWeek,
+                          holiday: Option[String])
 
   val isOpen: Adt => Boolean = (_: Adt) match {
     case Open(_) => true
