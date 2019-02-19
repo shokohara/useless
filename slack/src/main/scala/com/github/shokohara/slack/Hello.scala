@@ -1,7 +1,6 @@
 package com.github.shokohara.slack
 
 import java.time._
-import java.time.format.DateTimeFormatter
 
 import cats.data.{Ior, NonEmptyChain, NonEmptyList}
 import cats.derived.auto.eq._
@@ -19,6 +18,7 @@ import eu.timepit.refined.api.Refined
 import eu.timepit.refined.auto._
 import eu.timepit.refined.numeric.Interval.Closed
 import io.chrisdavenport.cats.time._
+import jp.t2v.util.locale.Implicits._
 
 import scala.collection.JavaConverters._
 import scala.util.Try
@@ -185,26 +185,33 @@ object Hello extends IOApp with LazyLogging {
 
   def adtsToSummary(adts: NonEmptyList[Adt]): Either[RuntimeException, Summary] = {
     logger.debug(adts.toString)
-    if (adts.filter(isOpen).isEmpty)
-      new RuntimeException("Openが0です").asLeft
-    else if (adts.filter(isOpen).length > 1)
-      new RuntimeException("Openが複数存在します").asLeft
-    else if (adts.count(isClose).isEmpty)
-      new RuntimeException("Closeが0です").asLeft
-    else if (adts.count(isClose) > 1)
-      new RuntimeException("Closeが複数存在します").asLeft
-    else if (adts.count(isAfk) === adts.count(isBack) || adts.count(isAfk) === adts.count(isBack) + 1)
-      Summary(
-        open = adts.filter(isOpen).head.ts,
-        close = adts.filter(isClose).head.ts,
-        restingDuration = Duration.ZERO,
-//          adts.filter(a => isOpen(a) || isBack(a)).sortBy(_.ts).pipe(_ => ???),
-        workingDuration = Duration.ZERO,
-      ).asRight
-    else new RuntimeException(s"Afkの回数とBackの回数が不正です Afk: ${adts.count(isAfk)} Back: ${adts.count(isBack)}").asLeft
+    adts.filter(isOpen).toNel.toRight(new RuntimeException("Openが0です")).flatMap { opens =>
+      if (opens.length > 1)
+        new RuntimeException("Openが複数存在します").asLeft
+      else if (adts.count(isClose).isEmpty)
+        new RuntimeException("Closeが0です").asLeft
+      else if (adts.count(isClose) > 1)
+        new RuntimeException("Closeが複数存在します").asLeft
+      else if (adts.count(isAfk) === adts.count(isBack) || adts.count(isAfk) === adts.count(isBack) + 1)
+        Summary(
+          open = adts.filter(isOpen).head.ts,
+          close = adts.filter(isClose).head.ts,
+          restingDuration = Duration.ZERO,
+          //          adts.filter(a => isOpen(a) || isBack(a)).sortBy(_.ts).pipe(_ => ???),
+          workingDuration = Duration.ZERO,
+          dayOfWeek = opens.head.ts.toLocalDate.getDayOfWeek,
+          holiday = opens.head.ts.toLocalDate.holidayName
+        ).asRight
+      else new RuntimeException(s"Afkの回数とBackの回数が不正です Afk: ${adts.count(isAfk)} Back: ${adts.count(isBack)}").asLeft
+    }
   }
 
-  case class Summary(open: ZonedDateTime, close: ZonedDateTime, restingDuration: Duration, workingDuration: Duration)
+  case class Summary(open: ZonedDateTime,
+                     close: ZonedDateTime,
+                     restingDuration: Duration,
+                     workingDuration: Duration,
+                     dayOfWeek: DayOfWeek,
+                     holiday: Option[String])
 
   val isOpen: Adt => Boolean = (_: Adt) match {
     case Open(_) => true

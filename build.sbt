@@ -10,6 +10,7 @@ lazy val slack = (project in file("slack"))
     scalacOptions +=  "-Ypartial-unification",
     libraryDependencies ++= Seq(
       "com.github.seratch" % "jslack" % "1.1.7",
+      "jp.t2v" %% "holidays" % "5.2",
       "eu.timepit" %% "refined" % refinedVersion,
       "eu.timepit" %% "refined-pureconfig" % refinedVersion,
       "com.github.pureconfig" %% "pureconfig" % "0.10.2",
