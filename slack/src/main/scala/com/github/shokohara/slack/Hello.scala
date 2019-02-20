@@ -159,7 +159,8 @@ object Hello extends IOApp with LazyLogging {
         .withSecond(0).withNano(0)
       summary <- myMessages
         .filter(_.ts > latestDate).toNel.toRight(new RuntimeException(s"$latestDate のメッセージが存在しません"))
-        .flatMap(_.map(stringToAdt).sequence[Either[RuntimeException, ?], Adt])
+        .flatMap(_.map(stringToAdt).sequence[Either[RuntimeException, ?], Either[RuntimeException, Adt]])
+        .flatMap(_.toList.flatMap(_.toOption.toList).toNel.toRight(new RuntimeException("toNel")))
         .flatMap(adtsToSummary)
     } yield summary
 
@@ -175,13 +176,14 @@ object Hello extends IOApp with LazyLogging {
         .withSecond(0).withNano(0)
       summary <- myMessages
         .filter(_.ts > latestDate).toNel.toRight(new RuntimeException(s"$latestDate のメッセージが存在しません"))
-        .flatMap(_.map(stringToAdt).sequence[Either[RuntimeException, ?], Adt])
+        .flatMap(_.map(stringToAdt).sequence[Either[RuntimeException, ?], Either[RuntimeException, Adt]])
+        .flatMap(_.toList.flatMap(_.toOption.toList).toNel.toRight(new RuntimeException("toNel")))
         .flatMap(adtsToWorkingDuration(_, now))
     } yield summary
 
-  def stringToAdt(a: Message): Either[RuntimeException, Adt] = {
+  def stringToAdt(a: Message): Either[RuntimeException, Either[RuntimeException, Adt]] = {
     println(a)
-    if (a.text === "open") Open(a.ts).asRight
+    if (a.text === "open") Open(a.ts).asRight.asRight
     else if (a.text.startsWith("opened at ") || a.text.startsWith("opend at "))
       try {
         val timeText = a.text.reverse.takeWhile(_.isSpaceChar === false).reverse
@@ -189,12 +191,15 @@ object Hello extends IOApp with LazyLogging {
         Open(
           a.ts
             .withZoneSameLocal(zoneId).withHour(localTime.getHour).withMinute(localTime.getMinute).withSecond(0)
-            .withNano(0)).asRight
+            .withNano(0)).asRight.asRight
       } catch { case e: RuntimeException => e.asLeft } else if (a.text === "afk" || a.text === "qk")
-      Afk(a.ts).asRight
-    else if (a.text === "back") Back(a.ts).asRight
-    else if (a.text === "close") Close(a.ts).asRight
-    else new RuntimeException(s"${a}を${classOf[Adt].getName}に変換できません").asLeft
+      Afk(a.ts).asRight.asRight
+    else if (a.text === "back") Back(a.ts).asRight.asRight
+    else if (a.text === "close") Close(a.ts).asRight.asRight
+    else
+      new RuntimeException(s"${a}を${classOf[Adt].getName}に変換できません").asLeft.asRight: Either[
+        RuntimeException,
+        Either[RuntimeException, Adt]]
   }
 
   def f_(a: NonEmptyList[Either[String, Adt]]): Ior[NonEmptyChain[String], NonEmptyList[Adt]] =
