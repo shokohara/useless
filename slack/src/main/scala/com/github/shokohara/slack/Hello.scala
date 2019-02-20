@@ -6,6 +6,7 @@ import cats.data.{Ior, NonEmptyChain, NonEmptyList}
 import cats.derived.auto.eq._
 import cats.effect._
 import cats.implicits._
+import cats.kernel.Eq
 import com.github.seratch.jslack.Slack
 import com.github.seratch.jslack.api.methods.SlackApiResponse
 import com.github.seratch.jslack.api.methods.request.channels._
@@ -289,6 +290,10 @@ object Hello extends IOApp with LazyLogging {
       dayOfWeek = dayOfWeek,
       holiday = holiday
     )
+  }
+
+  object Summary {
+    implicit val eq: Eq[Summary] = Eq.fromUniversalEquals[Summary]
   }
 
   case class SummaryLocal(open: LocalDateTime,
