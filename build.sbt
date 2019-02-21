@@ -26,7 +26,10 @@ lazy val slack = (project in file("slack"))
     ) ++ commonLibraryDependencies
   )
 lazy val seed = (project in file("seed")).settings(
-  libraryDependencies += scalaTest
+  libraryDependencies += scalaTest,
+  libraryDependencies += "com.pepegar" %% "hammock-core" % hammockVersion,
+  libraryDependencies += "com.pepegar" %% "hammock-apache-http" % hammockVersion,
+  libraryDependencies += "com.pepegar" %% "hammock-akka-http" % hammockVersion,
 )
 lazy val lol = (project in file("lol"))
   .settings(commonSettings)
@@ -73,6 +76,7 @@ lazy val web = (project in file("web"))
 lazy val circeVersion = "0.11.1"
 lazy val refinedVersion = "0.9.4"
 lazy val doobieVersion = "0.6.0"
+lazy val hammockVersion = "0.9.0"
 
 lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.0.5" % Test
 
