@@ -139,7 +139,8 @@ object Hello extends IOApp with LazyLogging {
                   latestSummary(nel, u).map(a => println(a.toLocal)).leftFlatMap { e =>
                     logger.error("", e)
                     latestWorkingDuration(nel, u, ZonedDateTime.now(zoneId).some).map { d =>
-                      println("Working: " + d.toString)
+                      println("Working: " + LocalTime.of(0, 0).plus(d._1))
+                      println("Resting: " + LocalTime.of(0, 0).plus(d._2))
                     }
                 }))
         }
