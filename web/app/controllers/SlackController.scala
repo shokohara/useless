@@ -12,7 +12,7 @@ import io.circe.refined._
 import io.circe.syntax._
 import io.circe.{Decoder, Encoder, Json}
 import play.api.libs.circe.Circe
-import play.api.mvc.{AbstractController, Action, AnyContent, ControllerComponents}
+import play.api.mvc.{AbstractController, Action, ControllerComponents}
 
 import scala.concurrent.ExecutionContext
 import scala.util.chaining._
@@ -27,15 +27,6 @@ class SlackController(cc: ControllerComponents)(implicit val ec: ExecutionContex
   def index: Action[Request] = Action.async(circe.json[Request]) { request =>
     ApplicationConfig(request.body.token, request.body.channelName, request.body.userName)
       .pipe(Hello.toSummary(_, request.body.localDate.atStartOfDay(zoneId))).pipe(
-        _.flatMap(_.fold(IO.raiseError, IO.pure)).unsafeToFuture().map(_.asJson).map(Ok(_)))
-  }
-
-  def index2(token: NonEmptyString,
-             channelName: NonEmptyString,
-             userName: NonEmptyString,
-             localDate: LocalDate): Action[AnyContent] = Action.async {
-    Hello
-      .toSummary(ApplicationConfig(token, channelName, userName), localDate.atStartOfDay(zoneId)).pipe(
         _.flatMap(_.fold(IO.raiseError, IO.pure)).unsafeToFuture().map(_.asJson).map(Ok(_)))
   }
 }
