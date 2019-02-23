@@ -3,7 +3,8 @@ package controllers
 import java.time.{DayOfWeek, LocalDate, ZoneId}
 
 import cats.effect.IO
-import com.github.shokohara.slack.Hello.SummaryLocal
+import cats.implicits._
+import com.github.shokohara.slack.Hello.SummaryLocalTime
 import com.github.shokohara.slack.{ApplicationConfig, Hello}
 import eu.timepit.refined.types.string.NonEmptyString
 import io.circe.generic.semiauto._
@@ -22,12 +23,22 @@ class SlackController(cc: ControllerComponents)(implicit val ec: ExecutionContex
   import SlackController._
 
   implicit val dayOfWeekEncoder: Encoder[DayOfWeek] = Encoder.instance(_.name().pipe(Json.fromString))
-  implicit val summaryEncoder: Encoder[SummaryLocal] = deriveEncoder
+  implicit val summaryEncoder: Encoder[SummaryLocalTime] = deriveEncoder
+
+  def toTsv(local: SummaryLocalTime): String =
+    s"${local.open}\t${local.close}\t${local.restingTime}\t${local.workingTime}"
 
   def index: Action[Request] = Action.async(circe.json[Request]) { request =>
-    ApplicationConfig(request.body.token, request.body.channelName, request.body.userName)
-      .pipe(Hello.toSummary(_, request.body.localDate.atStartOfDay(zoneId)).map(_.map(_.toLocal))).pipe(
-        _.flatMap(_.fold(IO.raiseError, IO.pure)).unsafeToFuture().map(_.asJson).map(Ok(_)))
+    val c = ApplicationConfig(request.body.token, request.body.channelName, request.body.userName)
+    Hello
+      .toSummary(c, request.body.localDate.atStartOfDay(zoneId)).map(_.map(_.toLocal))
+      .flatMap(_.fold(IO.raiseError, IO.pure))
+      .map { sl =>
+        request.acceptedTypes.toList
+          .find(mediaRange => mediaRange.mediaType === "text" && mediaRange.mediaSubType === "tab-separated-values")
+          .fold(Ok(sl.asJson))(_ => Ok(toTsv(sl)))
+      }
+      .unsafeToFuture()
   }
 }
 

@@ -273,9 +273,9 @@ object Hello extends IOApp with LazyLogging {
                      dayOfWeek: DayOfWeek,
                      holiday: Option[String]) {
 
-    def toLocal = SummaryLocal(
-      open = open.withZoneSameInstant(zoneId).toLocalDateTime,
-      close = close.withZoneSameInstant(zoneId).toLocalDateTime,
+    def toLocal = SummaryLocalTime(
+      open = open.withZoneSameInstant(zoneId).toLocalTime,
+      close = close.withZoneSameInstant(zoneId).toLocalTime,
       restingTime = LocalTime.of(0, 0).plus(restingDuration),
       workingTime = LocalTime.of(0, 0).plus(workingDuration),
       dayOfWeek = dayOfWeek,
@@ -287,12 +287,12 @@ object Hello extends IOApp with LazyLogging {
     implicit val eq: Eq[Summary] = Eq.fromUniversalEquals[Summary]
   }
 
-  case class SummaryLocal(open: LocalDateTime,
-                          close: LocalDateTime,
-                          restingTime: LocalTime,
-                          workingTime: LocalTime,
-                          dayOfWeek: DayOfWeek,
-                          holiday: Option[String])
+  case class SummaryLocalTime(open: LocalTime,
+                              close: LocalTime,
+                              restingTime: LocalTime,
+                              workingTime: LocalTime,
+                              dayOfWeek: DayOfWeek,
+                              holiday: Option[String])
 
   val isOpen: Adt => Boolean = (_: Adt) match {
     case Open(_) => true
