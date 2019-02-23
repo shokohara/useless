@@ -1,8 +1,8 @@
 package com.github.shokohara.slack
 
-import java.time.{DayOfWeek, Duration, LocalTime, ZonedDateTime}
+import java.time._
+
 import cats.kernel.Eq
-import com.github.shokohara.slack.Hello.zoneId
 
 case class Summary(open: ZonedDateTime,
                    close: ZonedDateTime,
@@ -11,7 +11,7 @@ case class Summary(open: ZonedDateTime,
                    dayOfWeek: DayOfWeek,
                    holiday: Option[String]) {
 
-  def toLocal = SummaryLocalTime(
+  def toLocal(zoneId: ZoneId) = SummaryLocalTime(
     open = open.withZoneSameInstant(zoneId).toLocalTime,
     close = close.withZoneSameInstant(zoneId).toLocalTime,
     restingTime = LocalTime.of(0, 0).plus(restingDuration),

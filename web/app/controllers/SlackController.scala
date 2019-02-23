@@ -30,7 +30,7 @@ class SlackController(cc: ControllerComponents)(implicit val ec: ExecutionContex
   def index: Action[Request] = Action.async(circe.json[Request]) { request =>
     val c = ApplicationConfig(request.body.token, request.body.channelName, request.body.userName)
     Hello
-      .toSummary(c, request.body.localDate.atStartOfDay(zoneId)).map(_.map(_.toLocal))
+      .toSummary(c, request.body.localDate.plusDays(1), request.body.zoneId).map(_.map(_.toLocal(request.body.zoneId)))
       .flatMap(_.fold(IO.raiseError, IO.pure))
       .map { sl =>
         request.acceptedTypes.toList
@@ -42,11 +42,11 @@ class SlackController(cc: ControllerComponents)(implicit val ec: ExecutionContex
 }
 
 object SlackController {
-  val zoneId: ZoneId = ZoneId.of("Asia/Tokyo")
   final case class Request(token: NonEmptyString,
                            channelName: NonEmptyString,
                            userName: NonEmptyString,
-                           localDate: LocalDate)
+                           localDate: LocalDate,
+                           zoneId: ZoneId)
 
   object Request {
     implicit val decoder: Decoder[Request] = deriveDecoder

@@ -27,7 +27,7 @@ import scala.util.chaining._
 object Hello extends IOApp with LazyLogging {
 
   val config = IO(_root_.pureconfig.loadConfigOrThrow[ApplicationConfig])
-  val zoneId: ZoneId = ZoneId.of("Asia/Tokyo")
+//  val asiaTokyo: ZoneId = ZoneId.of("Asia/Tokyo")
 
   def toTimestampString(zonedDateTime: ZonedDateTime): String =
     zonedDateTime.toEpochSecond + "." + zonedDateTime.getNano
@@ -39,7 +39,8 @@ object Hello extends IOApp with LazyLogging {
   }
 
   def f(applicationConfig: ApplicationConfig,
-        until: ZonedDateTime): IO[Either[RuntimeException, (List[Message], User)]] = IO {
+        until: LocalDate,
+        zoneId: ZoneId): IO[Either[RuntimeException, (List[Message], User)]] = IO {
     val slack: Slack = Slack.getInstance
     for {
       u <- UsersListRequest
@@ -53,7 +54,7 @@ object Hello extends IOApp with LazyLogging {
         .builder().token(applicationConfig.slackToken).build().pipe(slack.methods().channelsList).toEither.flatMap(
           _.getChannels.asScala
             .find(_.getName === applicationConfig.slackChannelName).toRight(new RuntimeException("")))
-      h <- g(slack, applicationConfig, c, until, Nil).unsafeRunSync()
+      h <- g(slack, applicationConfig, c, until.atStartOfDay(zoneId), Nil).unsafeRunSync()
     } yield (h, u)
   }
 
@@ -119,15 +120,18 @@ object Hello extends IOApp with LazyLogging {
       case e: RuntimeException => e.asLeft
     }
 
-  def toSummary(applicationConfig: ApplicationConfig, until: ZonedDateTime): IO[Either[RuntimeException, Summary]] =
-    f(applicationConfig, until).flatMap(_.fold(IO.raiseError, {
+  def toSummary(applicationConfig: ApplicationConfig,
+                until: LocalDate,
+                zoneId: ZoneId): IO[Either[RuntimeException, Summary]] =
+    f(applicationConfig, until, zoneId).flatMap(_.fold(IO.raiseError, {
       case (list, u) =>
-        IO.fromEither(list.toNel.toRight(new RuntimeException("メッセージが存在しません")).map(latestSummary(_, u)))
+        IO.fromEither(list.toNel.toRight(new RuntimeException("メッセージが存在しません")).map(latestSummary(_, u, zoneId)))
     }))
 
-  def run(args: List[String]): IO[ExitCode] =
+  def run(args: List[String]): IO[ExitCode] = {
+    val asiaTokyo = ZoneId.of("Asia/Tokyo")
     config
-      .flatMap(f(_, ZonedDateTime.now()))
+      .flatMap(f(_, LocalDate.now().plusDays(1), asiaTokyo))
       .flatMap(_.fold(
         IO.raiseError, {
           case (list, u) =>
@@ -135,34 +139,37 @@ object Hello extends IOApp with LazyLogging {
               list.toNel
                 .toRight(new RuntimeException("メッセージが存在しません"))
                 .flatMap(nel =>
-                  latestSummary(nel, u).map(a => println(a.toLocal)).leftFlatMap { e =>
+                  latestSummary(nel, u, asiaTokyo).map(a => println(a.toLocal(asiaTokyo))).leftFlatMap { e =>
                     logger.error("", e)
-                    latestWorkingDuration(nel, u, ZonedDateTime.now(zoneId).some).map { d =>
+                    latestWorkingDuration(nel, u, ZonedDateTime.now(asiaTokyo).some, asiaTokyo).map { d =>
                       println("Working: " + LocalTime.of(0, 0).plus(d._1))
                       println("Resting: " + LocalTime.of(0, 0).plus(d._2))
                     }
                 }))
         }
       )).map(_ => ExitCode.Success)
+  }
 
-  def latestSummary(messages: NonEmptyList[Message], user: User): Either[RuntimeException, Summary] =
-    listLatestDateAdt(messages, user).flatMap(adtsToSummary)
+  def latestSummary(messages: NonEmptyList[Message], user: User, zoneId: ZoneId): Either[RuntimeException, Summary] =
+    listLatestDateAdt(messages, user, zoneId: ZoneId).flatMap(adtsToSummary)
 
   def latestWorkingDuration(messages: NonEmptyList[Message],
                             user: User,
-                            now: Option[ZonedDateTime]): Either[RuntimeException, (Duration, Duration)] =
-    listLatestDateAdt(messages, user).flatMap(adtsToWorkingDuration(_, now))
+                            now: Option[ZonedDateTime],
+                            zoneId: ZoneId): Either[RuntimeException, (Duration, Duration)] =
+    listLatestDateAdt(messages, user, zoneId).flatMap(adtsToWorkingDuration(_, now))
 
-  def listLatestDateAdt(messages: NonEmptyList[Message], user: User): Either[RuntimeException, NonEmptyList[Adt]] =
+  def listLatestDateAdt(messages: NonEmptyList[Message],
+                        user: User,
+                        zoneId: ZoneId): Either[RuntimeException, NonEmptyList[Adt]] =
     for {
       myMessages <- messages
         .filter(_.user === user.getId).toNel
         .toRight(new RuntimeException(s"${user.getId} のメッセージが存在しません"))
-      latestDate = myMessages
-        .map(_.ts).maximum.withZoneSameInstant(zoneId).withHour(0).withMinute(0)
-        .withSecond(0).withNano(0)
+      latestDate = myMessages.map(_.ts).maximum.withZoneSameInstant(zoneId).toLocalDate
       summary <- myMessages
-        .filter(_.ts > latestDate).toNel.toRight(new RuntimeException(s"$latestDate のメッセージが存在しません"))
+        .filter(_.ts.withZoneSameInstant(zoneId).toLocalDate === latestDate).toNel.toRight(
+          new RuntimeException(s"$latestDate のメッセージが存在しません"))
         .flatMap(_.map(stringToAdt).sequence[Either[RuntimeException, ?], Either[RuntimeException, Adt]])
         .flatMap(_.toList.flatMap(_.toOption.toList).toNel.toRight(new RuntimeException("toNel")))
     } yield summary
@@ -174,10 +181,7 @@ object Hello extends IOApp with LazyLogging {
       try {
         val timeText = a.text.reverse.takeWhile(_.isSpaceChar === false).reverse
         val localTime = LocalTime.parse(timeText)
-        Open(
-          a.ts
-            .withZoneSameLocal(zoneId).withHour(localTime.getHour).withMinute(localTime.getMinute).withSecond(0)
-            .withNano(0)).asRight.asRight
+        Open(a.ts.withHour(localTime.getHour).withMinute(localTime.getMinute)).asRight.asRight
       } catch { case e: RuntimeException => e.asLeft } else if (a.text === "afk" || a.text === "qk")
       Afk(a.ts).asRight.asRight
     else if (a.text === "back") Back(a.ts).asRight.asRight
