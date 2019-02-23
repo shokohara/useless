@@ -218,7 +218,7 @@ object Hello extends IOApp with LazyLogging {
               case (None, a @ Afk(_))         => (d, a.some).asRight
               case (Some(Afk(_)), a @ Afk(_)) => (d, a.some).asRight
               case (Some(afk @ Afk(_)), back @ Back(_)) =>
-                (d.plus(Duration.ofMillis(back.ts.toInstant.toEpochMilli - afk.ts.toInstant.toEpochMilli)), back.some).asRight
+                (d.plus(Duration.between(afk.ts, back.ts)), back.some).asRight
               case (Some(Back(_)), afk @ Afk(_)) => (d, afk.some).asRight
               // Back Backで例外
               case _ => new RuntimeException("").asLeft
@@ -242,7 +242,7 @@ object Hello extends IOApp with LazyLogging {
         case (r, w) =>
           Summary(
             open = adts.filter(isOpen).head.ts,
-            close = adts.filter(isClose).head.ts,
+            close = if (isAfk(adts.init.last)) adts.init.last.ts else adts.filter(isClose).head.ts,
             restingDuration = r,
             workingDuration = w,
             dayOfWeek = opens.head.ts.toLocalDate.getDayOfWeek,

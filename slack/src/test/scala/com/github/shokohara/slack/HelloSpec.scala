@@ -24,13 +24,13 @@ class HelloSpec extends FlatSpec with Matchers {
     val adts: NonEmptyList[Adt] = NonEmptyList.fromListUnsafe(
       Open(openZdt) :: Afk(afk1Zdt) :: Back(backZdt) :: Afk(afk2Zdt) :: Close(closeZdt) :: Nil)
 
-//    Hello.adtsToSummary(adts).right.get shouldEqual Summary(
-//      openZdt,
-//      afk2Zdt,
-//      Duration.ZERO,
-//      Duration.ZERO,
-//      DayOfWeek.FRIDAY,
-//      None
-//    )
+    Hello.adtsToSummary(adts).right.get shouldEqual Summary(
+      openZdt,
+      afk2Zdt,
+      Duration.parse("PT22M24S"),
+      Duration.parse("PT8H22M26S"),
+      DayOfWeek.FRIDAY,
+      None
+    )
   }
 }
