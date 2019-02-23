@@ -2,11 +2,10 @@ package com.github.shokohara.slack
 
 import java.time._
 
-import cats.data.{EitherT, Ior, NonEmptyChain, NonEmptyList}
+import cats.data.NonEmptyList
 import cats.derived.auto.eq._
 import cats.effect._
 import cats.implicits._
-import cats.kernel.Eq
 import com.github.seratch.jslack.Slack
 import com.github.seratch.jslack.api.methods.SlackApiResponse
 import com.github.seratch.jslack.api.methods.request.channels._
@@ -145,11 +144,6 @@ object Hello extends IOApp with LazyLogging {
                 }))
         }
       )).map(_ => ExitCode.Success)
-  //    config.flatMap(f).flatMap(_.fold(IO.raiseError, _.traverse_(m => IO.pure(logger.info(m.ts.show))))).map { _ =>
-//    IO {
-//      println(ZonedDateTime.now(ZoneOffset.UTC))
-//      println(ZonedDateTime.now(ZoneOffset.UTC).withZoneSameInstant(zoneId))
-//      println(ZonedDateTime.now(ZoneOffset.UTC).withZoneSameInstant(zoneId).toLocalDateTime)
 
   def latestSummary(messages: NonEmptyList[Message], user: User): Either[RuntimeException, Summary] =
     listLatestDateAdt(messages, user).flatMap(adtsToSummary)
@@ -193,14 +187,6 @@ object Hello extends IOApp with LazyLogging {
         RuntimeException,
         Either[RuntimeException, Adt]]
   }
-
-  def f_(a: NonEmptyList[Either[String, Adt]]): Ior[NonEmptyChain[String], NonEmptyList[Adt]] =
-    NonEmptyList
-      .fromListUnsafe(a.filter(_.isRight).map(_.right.get)).rightIor.tap((a: Ior[Nothing, NonEmptyList[Adt]]) =>
-        logger.debug(a.toString))
-
-//    a.reduceLeftM(_.bimap(NonEmptyChain.one, NonEmptyChain.one).toIor)((b, m) =>
-//      m.bimap(NonEmptyChain.one, b :+ _).toIor)
 
   def adtsToWorkingDuration(adts: NonEmptyList[Adt],
                             now: Option[ZonedDateTime]): Either[RuntimeException, (Duration, Duration)] =
