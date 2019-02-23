@@ -4,8 +4,7 @@ import java.time.{DayOfWeek, LocalDate, ZoneId}
 
 import cats.effect.IO
 import cats.implicits._
-import com.github.shokohara.slack.Hello.SummaryLocalTime
-import com.github.shokohara.slack.{ApplicationConfig, Hello}
+import com.github.shokohara.slack.{ApplicationConfig, Hello, SummaryLocalTime}
 import eu.timepit.refined.types.string.NonEmptyString
 import io.circe.generic.semiauto._
 import io.circe.java8.time._

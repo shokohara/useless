@@ -157,7 +157,7 @@ object Hello extends IOApp with LazyLogging {
   def latestWorkingDuration(messages: NonEmptyList[Message],
                             user: User,
                             now: Option[ZonedDateTime]): Either[RuntimeException, (Duration, Duration)] =
-    listLatestDateAdt(messages,user).flatMap(adtsToWorkingDuration(_, now))
+    listLatestDateAdt(messages, user).flatMap(adtsToWorkingDuration(_, now))
 
   def listLatestDateAdt(messages: NonEmptyList[Message], user: User): Either[RuntimeException, NonEmptyList[Adt]] =
     for {
@@ -203,39 +203,38 @@ object Hello extends IOApp with LazyLogging {
 //      m.bimap(NonEmptyChain.one, b :+ _).toIor)
 
   def adtsToWorkingDuration(adts: NonEmptyList[Adt],
-                            now: Option[ZonedDateTime]): Either[RuntimeException, (Duration, Duration)] = {
+                            now: Option[ZonedDateTime]): Either[RuntimeException, (Duration, Duration)] =
     validateAdts(adts).flatMap { opens =>
       logger.debug(adts.filter(a => isAfk(a) || isBack(a)).sortBy(_.ts).toString())
       adts
         .filter(a => isAfk(a) || isBack(a)).sortBy(_.ts).foldLeftM[Either[RuntimeException, ?],
-        (Duration, Option[Adt])]((Duration.ZERO, None)) {
-        case ((d, opt), a) =>
-          logger.debug((d, opt, a).toString())
-          (opt, a) match {
-            case (None, a@Afk(_)) => (d, a.some).asRight
-            case (Some(Afk(_)), a@Afk(_)) => (d, a.some).asRight
-            case (Some(afk@Afk(_)), back@Back(_)) =>
-              (d.plus(Duration.ofMillis(back.ts.toInstant.toEpochMilli - afk.ts.toInstant.toEpochMilli)), back.some).asRight
-            case (Some(Back(_)), afk@Afk(_)) => (d, afk.some).asRight
-            // Back Backで例外
-            case _ => new RuntimeException("").asLeft
+                                                                   (Duration, Option[Adt])]((Duration.ZERO, None)) {
+          case ((d, opt), a) =>
+            logger.debug((d, opt, a).toString())
+            (opt, a) match {
+              case (None, a @ Afk(_))         => (d, a.some).asRight
+              case (Some(Afk(_)), a @ Afk(_)) => (d, a.some).asRight
+              case (Some(afk @ Afk(_)), back @ Back(_)) =>
+                (d.plus(Duration.ofMillis(back.ts.toInstant.toEpochMilli - afk.ts.toInstant.toEpochMilli)), back.some).asRight
+              case (Some(Back(_)), afk @ Afk(_)) => (d, afk.some).asRight
+              // Back Backで例外
+              case _ => new RuntimeException("").asLeft
+            }
+        }.map(_._1).flatMap { resting =>
+          logger.debug(s"休憩時間: $resting")
+          val open = adts.filter(isOpen).head.ts
+          adts.sortBy(_.ts).last match {
+            case Back(_)   => (resting, Duration.between(now.get, open).abs().minus(resting)).asRight
+            case Afk(ts)   => (resting, Duration.between(ts, open).abs().minus(resting)).asRight
+            case Close(ts) => (resting, Duration.between(ts, open).abs().minus(resting)).asRight
+            case _         => new RuntimeException("").asLeft
           }
-      }.map(_._1).flatMap { resting =>
-        logger.debug(s"休憩時間: $resting")
-        val open = adts.filter(isOpen).head.ts
-        adts.sortBy(_.ts).last match {
-          case Back(_) => (resting, Duration.between(now.get, open).abs().minus(resting)).asRight
-          case Afk(ts) => (resting, Duration.between(ts, open).abs().minus(resting)).asRight
-          case Close(ts) => (resting, Duration.between(ts, open).abs().minus(resting)).asRight
-          case _ => new RuntimeException("").asLeft
         }
-      }
     }
-  }
 
   def adtsToSummary(adts: NonEmptyList[Adt]): Either[RuntimeException, Summary] = {
     logger.debug(adts.toString)
-    validateAdts(adts).flatMap{ opens =>
+    validateAdts(adts).flatMap { opens =>
       adtsToWorkingDuration(adts, None).map({
         case (r, w) =>
           Summary(
@@ -265,34 +264,6 @@ object Hello extends IOApp with LazyLogging {
     }
   }
 
-  case class Summary(open: ZonedDateTime,
-                     close: ZonedDateTime,
-                     restingDuration: Duration,
-                     workingDuration: Duration,
-                     dayOfWeek: DayOfWeek,
-                     holiday: Option[String]) {
-
-    def toLocal = SummaryLocalTime(
-      open = open.withZoneSameInstant(zoneId).toLocalTime,
-      close = close.withZoneSameInstant(zoneId).toLocalTime,
-      restingTime = LocalTime.of(0, 0).plus(restingDuration),
-      workingTime = LocalTime.of(0, 0).plus(workingDuration),
-      dayOfWeek = dayOfWeek,
-      holiday = holiday
-    )
-  }
-
-  object Summary {
-    implicit val eq: Eq[Summary] = Eq.fromUniversalEquals[Summary]
-  }
-
-  case class SummaryLocalTime(open: LocalTime,
-                              close: LocalTime,
-                              restingTime: LocalTime,
-                              workingTime: LocalTime,
-                              dayOfWeek: DayOfWeek,
-                              holiday: Option[String])
-
   val isOpen: Adt => Boolean = (_: Adt) match {
     case Open(_) => true
     case _       => false
@@ -312,12 +283,4 @@ object Hello extends IOApp with LazyLogging {
     case Close(_) => true
     case _        => false
   }
-
-  sealed abstract class Adt {
-    def ts: ZonedDateTime
-  }
-  case class Open(ts: ZonedDateTime) extends Adt
-  case class Afk(ts: ZonedDateTime) extends Adt
-  case class Back(ts: ZonedDateTime) extends Adt
-  case class Close(ts: ZonedDateTime) extends Adt
 }
