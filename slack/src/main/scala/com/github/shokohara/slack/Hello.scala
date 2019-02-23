@@ -2,7 +2,7 @@ package com.github.shokohara.slack
 
 import java.time._
 
-import cats.data.{Ior, NonEmptyChain, NonEmptyList}
+import cats.data.{EitherT, Ior, NonEmptyChain, NonEmptyList}
 import cats.derived.auto.eq._
 import cats.effect._
 import cats.implicits._

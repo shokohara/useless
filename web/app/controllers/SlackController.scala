@@ -3,7 +3,7 @@ package controllers
 import java.time.{DayOfWeek, LocalDate, ZoneId}
 
 import cats.effect.IO
-import com.github.shokohara.slack.Hello.Summary
+import com.github.shokohara.slack.Hello.SummaryLocal
 import com.github.shokohara.slack.{ApplicationConfig, Hello}
 import eu.timepit.refined.types.string.NonEmptyString
 import io.circe.generic.semiauto._
@@ -22,11 +22,11 @@ class SlackController(cc: ControllerComponents)(implicit val ec: ExecutionContex
   import SlackController._
 
   implicit val dayOfWeekEncoder: Encoder[DayOfWeek] = Encoder.instance(_.name().pipe(Json.fromString))
-  implicit val summaryEncoder: Encoder[Summary] = deriveEncoder
+  implicit val summaryEncoder: Encoder[SummaryLocal] = deriveEncoder
 
   def index: Action[Request] = Action.async(circe.json[Request]) { request =>
     ApplicationConfig(request.body.token, request.body.channelName, request.body.userName)
-      .pipe(Hello.toSummary(_, request.body.localDate.atStartOfDay(zoneId))).pipe(
+      .pipe(Hello.toSummary(_, request.body.localDate.atStartOfDay(zoneId)).map(_.map(_.toLocal))).pipe(
         _.flatMap(_.fold(IO.raiseError, IO.pure)).unsafeToFuture().map(_.asJson).map(Ok(_)))
   }
 }
