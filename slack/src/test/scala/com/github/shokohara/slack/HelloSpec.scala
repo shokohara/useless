@@ -7,8 +7,10 @@ import cats.implicits._
 import com.github.shokohara.slack.Hello._
 import org.scalatest.{FlatSpec, Matchers}
 
+import scala.util.chaining._
+
 class HelloSpec extends FlatSpec with Matchers {
-  "The Hello object" should "say hello" in {
+  "adtsToSummary" should "work" in {
     val zoneId: ZoneId = ZoneId.of("Asia/Tokyo")
     val localDate = LocalDate.of(2019, 2, 15)
     val openTime = LocalTime.of(11, 31, 52)
@@ -32,5 +34,47 @@ class HelloSpec extends FlatSpec with Matchers {
       DayOfWeek.FRIDAY,
       None
     )
+  }
+  behavior of "stringToAdt"
+  "RLGURERL7".pipe { userId =>
+    it should "work with open" in {
+      stringToAdt(Message(userId, ZonedDateTime.parse("2019-02-20T00:59:46.146700Z"), "open"))
+    }
+    it should "work with afk|qk" in {
+      // このテストも通したい
+      //    stringToAdt(Message(userId, ZonedDateTime.parse("2019-02-19T07:39:51.139500Z"), "qk at 07:31")) shouldEqual
+      //      Afk(ZonedDateTime.parse("2019-02-19T07:31:00.000000Z")).asRight.asRight
+      stringToAdt(Message(userId, ZonedDateTime.parse("2019-02-20T01:36:49.147600Z"), "afk")) shouldEqual
+        Afk(ZonedDateTime.parse("2019-02-20T01:36:49.147600Z")).asRight.asRight
+      stringToAdt(Message(userId, ZonedDateTime.parse("2019-02-20T05:58:53.155400Z"), "qk at "))
+        .map(_.leftMap(_.getMessage)) shouldEqual
+        s"Message($userId,2019-02-20T05:58:53.155400Z,qk at )をcom.github.shokohara.slack.Adtに変換できません".asLeft.asRight
+      stringToAdt(Message(userId, ZonedDateTime.parse("2019-02-20T07:40:53.158Z"), "qk")) shouldEqual
+        Afk(ZonedDateTime.parse("2019-02-20T07:40:53.158Z")).asRight.asRight
+    }
+    it should "work with back" in {
+      stringToAdt(Message(userId, ZonedDateTime.parse("2019-02-20T09:31:53.159500Z"), "back")) shouldEqual
+        Back(ZonedDateTime.parse("2019-02-20T09:31:53.159500Z")).asRight.asRight
+      // このテストも通したい
+      //    stringToAdt(Message(userId, ZonedDateTime.parse("2019-02-20T06:29:22.157800Z"), "backed at 06:21")) shouldEqual
+      //      Back(ZonedDateTime.parse("2019-02-20T06:29:21.000000Z")).asRight.asRight
+      stringToAdt(Message(userId, ZonedDateTime.parse("2019-02-20T01:43:56.148400Z"), "bak"))
+        .map(_.leftMap(_.getMessage)) shouldEqual
+        s"Message($userId,2019-02-20T01:43:56.148400Z,bak)をcom.github.shokohara.slack.Adtに変換できません".asLeft.asRight
+
+      stringToAdt(Message(userId, ZonedDateTime.parse("2019-02-19T07:57:53.139700Z"), "back"))
+    }
+    it should "work with close" in {
+      // このテストも通したい
+      //    stringToAdt(Message(userId, ZonedDateTime.parse("2019-02-19T09:59:51.141600Z"), "closed at 09:43")) shouldEqual
+      //      Close(ZonedDateTime.parse("2019-02-19T09:43:00.000000")).asRight.asRight
+      stringToAdt(Message(userId, ZonedDateTime.parse("2019-02-20T12:02:30.164Z"), "close")) shouldEqual
+        Close(ZonedDateTime.parse("2019-02-20T12:02:30.164Z")).asRight.asRight
+    }
+    it should "work with other" in {
+      stringToAdt(Message(userId, ZonedDateTime.parse("2019-02-20T01:44:03.148800Z"), "猫に投薬してました :cat2:"))
+        .map(_.leftMap(_.getMessage)) shouldEqual
+        s"Message($userId,2019-02-20T01:44:03.148800Z,猫に投薬してました :cat2:)をcom.github.shokohara.slack.Adtに変換できません".asLeft.asRight
+    }
   }
 }

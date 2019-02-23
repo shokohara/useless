@@ -55,6 +55,7 @@ object Hello extends IOApp with LazyLogging {
           _.getChannels.asScala
             .find(_.getName === applicationConfig.slackChannelName).toRight(new RuntimeException("")))
       h <- g(slack, applicationConfig, c, until.atStartOfDay(zoneId), Nil).unsafeRunSync()
+      _ = println(h.filter(_.user === u.getId).foreach(println))
     } yield (h, u)
   }
 
@@ -183,7 +184,7 @@ object Hello extends IOApp with LazyLogging {
     * 基本的に始業とともに"open"発言することでMessage.tsの時間が始業の時間を示す（例→open）。
     * 例外的に始業とともに"open"発言をし忘れた場合のためにopen時間を上書き可能にする文法がある（例→opened at 12:34）。
     * "at"文法は[opened|afk|qk|backed|closed]と組み合わせることができる。
-    * "at "以降の時刻は24h表記かつ1桁時か1桁分の場合は先頭に0を加える形式（例→12:34 09:01）のみを許可する。
+    * "at "以降の時刻は発言時刻より昔の時刻かつ24h表記かつ1桁時か1桁分の場合は先頭に0を加える形式（例→12:34 09:01）のみを許可する。
     * 許可されない形式だった場合は、雑談扱いにする。
     * これらの定義を満たさないメッセージは雑談扱いにする。
     * @param a Slackのメッセージ
