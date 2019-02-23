@@ -152,23 +152,14 @@ object Hello extends IOApp with LazyLogging {
 //      println(ZonedDateTime.now(ZoneOffset.UTC).withZoneSameInstant(zoneId).toLocalDateTime)
 
   def latestSummary(messages: NonEmptyList[Message], user: User): Either[RuntimeException, Summary] =
-    for {
-      myMessages <- messages
-        .filter(_.user === user.getId).toNel
-        .toRight(new RuntimeException(s"${user.getId} のメッセージが存在しません"))
-      latestDate = myMessages
-        .map(_.ts).maximum.withZoneSameInstant(zoneId).withHour(0).withMinute(0)
-        .withSecond(0).withNano(0)
-      summary <- myMessages
-        .filter(_.ts > latestDate).toNel.toRight(new RuntimeException(s"$latestDate のメッセージが存在しません"))
-        .flatMap(_.map(stringToAdt).sequence[Either[RuntimeException, ?], Either[RuntimeException, Adt]])
-        .flatMap(_.toList.flatMap(_.toOption.toList).toNel.toRight(new RuntimeException("toNel")))
-        .flatMap(adtsToSummary)
-    } yield summary
+    listLatestDateAdt(messages, user).flatMap(adtsToSummary)
 
   def latestWorkingDuration(messages: NonEmptyList[Message],
                             user: User,
                             now: Option[ZonedDateTime]): Either[RuntimeException, (Duration, Duration)] =
+    listLatestDateAdt(messages,user).flatMap(adtsToWorkingDuration(_, now))
+
+  def listLatestDateAdt(messages: NonEmptyList[Message], user: User): Either[RuntimeException, NonEmptyList[Adt]] =
     for {
       myMessages <- messages
         .filter(_.user === user.getId).toNel
@@ -180,7 +171,6 @@ object Hello extends IOApp with LazyLogging {
         .filter(_.ts > latestDate).toNel.toRight(new RuntimeException(s"$latestDate のメッセージが存在しません"))
         .flatMap(_.map(stringToAdt).sequence[Either[RuntimeException, ?], Either[RuntimeException, Adt]])
         .flatMap(_.toList.flatMap(_.toOption.toList).toNel.toRight(new RuntimeException("toNel")))
-        .flatMap(adtsToWorkingDuration(_, now))
     } yield summary
 
   def stringToAdt(a: Message): Either[RuntimeException, Either[RuntimeException, Adt]] = {
