@@ -2,7 +2,7 @@ package com.github.shokohara.slack
 
 import java.time._
 
-import cats.data.{EitherT, Ior, NonEmptyChain, NonEmptyList}
+import cats.data.{Ior, NonEmptyChain, NonEmptyList}
 import cats.derived.auto.eq._
 import cats.effect._
 import cats.implicits._
@@ -28,7 +28,7 @@ import scala.util.chaining._
 object Hello extends IOApp with LazyLogging {
 
   val config = IO(_root_.pureconfig.loadConfigOrThrow[ApplicationConfig])
-  val zoneId: ZoneId = ZoneId.of("Asia/Tokyo")
+  val asiaTokyo: ZoneId = ZoneId.of("Asia/Tokyo")
 
   def toTimestampString(zonedDateTime: ZonedDateTime): String =
     zonedDateTime.toEpochSecond + "." + zonedDateTime.getNano
@@ -40,7 +40,8 @@ object Hello extends IOApp with LazyLogging {
   }
 
   def f(applicationConfig: ApplicationConfig,
-        until: ZonedDateTime): IO[Either[RuntimeException, (List[Message], User)]] = IO {
+        until: LocalDate,
+        zoneId: ZoneId): IO[Either[RuntimeException, (List[Message], User)]] = IO {
     val slack: Slack = Slack.getInstance
     for {
       u <- UsersListRequest
@@ -54,7 +55,7 @@ object Hello extends IOApp with LazyLogging {
         .builder().token(applicationConfig.slackToken).build().pipe(slack.methods().channelsList).toEither.flatMap(
           _.getChannels.asScala
             .find(_.getName === applicationConfig.slackChannelName).toRight(new RuntimeException("")))
-      h <- g(slack, applicationConfig, c, until, Nil).unsafeRunSync()
+      h <- g(slack, applicationConfig, c, until, zoneId, Nil).unsafeRunSync()
     } yield (h, u)
   }
 
@@ -63,7 +64,8 @@ object Hello extends IOApp with LazyLogging {
   def g(slack: Slack,
         applicationConfig: ApplicationConfig,
         c: Channel,
-        until: ZonedDateTime,
+        until: LocalDate,
+        zoneId: ZoneId,
         acc: List[Message]): IO[Either[RuntimeException, List[Message]]] =
     IO.fromEither(
         Try(
@@ -86,13 +88,13 @@ object Hello extends IOApp with LazyLogging {
                 if (h.forall(a => acc.nonEmpty && acc.exists(_ === a)))
                   IO.pure(new RuntimeException("レスポンスボディの要素が重複しました").asLeft)
                 else {
-                  h.nonEmptyPartition(zdt => Either.cond(zdt.ts < until, zdt, zdt)).fold(
+                  h.nonEmptyPartition(zdt => Either.cond(zdt.ts < until.atStartOfDay(zoneId), zdt, zdt)).fold(
                       _ => IO.pure(acc.asRight),
                       n => {
                         logger.debug((n ++ acc).map(_.ts).maximum.show)
                         logger.debug((n ++ acc).map(_.ts).minimum.show)
                         logger.debug("g")
-                        g(slack, applicationConfig, c, until, acc ++ n.toList)
+                        g(slack, applicationConfig, c, until, zoneId, acc ++ n.toList)
                       },
                       (left, right) => {
                         logger.debug(left.map(_.ts).map(_.show).mkString_("", "\n", ""))
@@ -120,15 +122,17 @@ object Hello extends IOApp with LazyLogging {
       case e: RuntimeException => e.asLeft
     }
 
-  def toSummary(applicationConfig: ApplicationConfig, until: ZonedDateTime): IO[Either[RuntimeException, Summary]] =
-    f(applicationConfig, until).flatMap(_.fold(IO.raiseError, {
+  def toSummary(applicationConfig: ApplicationConfig,
+                date: LocalDate,
+                zoneId: ZoneId): IO[Either[RuntimeException, Summary]] =
+    f(applicationConfig, date, zoneId).flatMap(_.fold(IO.raiseError, {
       case (list, u) =>
         IO.fromEither(list.toNel.toRight(new RuntimeException("メッセージが存在しません")).map(latestSummary(_, u)))
     }))
 
   def run(args: List[String]): IO[ExitCode] =
     config
-      .flatMap(f(_, ZonedDateTime.now()))
+      .flatMap(f(_, LocalDate.now(), asiaTokyo))
       .flatMap(_.fold(
         IO.raiseError, {
           case (list, u) =>
@@ -138,7 +142,7 @@ object Hello extends IOApp with LazyLogging {
                 .flatMap(nel =>
                   latestSummary(nel, u).map(a => println(a.toLocal)).leftFlatMap { e =>
                     logger.error("", e)
-                    latestWorkingDuration(nel, u, ZonedDateTime.now(zoneId).some).map { d =>
+                    latestWorkingDuration(nel, u, ZonedDateTime.now(asiaTokyo).some).map { d =>
                       println("Working: " + LocalTime.of(0, 0).plus(d._1))
                       println("Resting: " + LocalTime.of(0, 0).plus(d._2))
                     }
@@ -157,7 +161,7 @@ object Hello extends IOApp with LazyLogging {
   def latestWorkingDuration(messages: NonEmptyList[Message],
                             user: User,
                             now: Option[ZonedDateTime]): Either[RuntimeException, (Duration, Duration)] =
-    listLatestDateAdt(messages,user).flatMap(adtsToWorkingDuration(_, now))
+    listLatestDateAdt(messages, user).flatMap(adtsToWorkingDuration(_, now))
 
   def listLatestDateAdt(messages: NonEmptyList[Message], user: User): Either[RuntimeException, NonEmptyList[Adt]] =
     for {
@@ -165,7 +169,7 @@ object Hello extends IOApp with LazyLogging {
         .filter(_.user === user.getId).toNel
         .toRight(new RuntimeException(s"${user.getId} のメッセージが存在しません"))
       latestDate = myMessages
-        .map(_.ts).maximum.withZoneSameInstant(zoneId).withHour(0).withMinute(0)
+        .map(_.ts).maximum.withZoneSameInstant(asiaTokyo).withHour(0).withMinute(0)
         .withSecond(0).withNano(0)
       summary <- myMessages
         .filter(_.ts > latestDate).toNel.toRight(new RuntimeException(s"$latestDate のメッセージが存在しません"))
@@ -182,7 +186,7 @@ object Hello extends IOApp with LazyLogging {
         val localTime = LocalTime.parse(timeText)
         Open(
           a.ts
-            .withZoneSameLocal(zoneId).withHour(localTime.getHour).withMinute(localTime.getMinute).withSecond(0)
+            .withZoneSameLocal(asiaTokyo).withHour(localTime.getHour).withMinute(localTime.getMinute).withSecond(0)
             .withNano(0)).asRight.asRight
       } catch { case e: RuntimeException => e.asLeft } else if (a.text === "afk" || a.text === "qk")
       Afk(a.ts).asRight.asRight
@@ -204,53 +208,44 @@ object Hello extends IOApp with LazyLogging {
 
   def adtsToWorkingDuration(adts: NonEmptyList[Adt],
                             now: Option[ZonedDateTime]): Either[RuntimeException, (Duration, Duration)] = {
-    validateAdts(adts).flatMap { opens =>
-      logger.debug(adts.filter(a => isAfk(a) || isBack(a)).sortBy(_.ts).toString())
-      adts
-        .filter(a => isAfk(a) || isBack(a)).sortBy(_.ts).foldLeftM[Either[RuntimeException, ?],
-        (Duration, Option[Adt])]((Duration.ZERO, None)) {
-        case ((d, opt), a) =>
-          logger.debug((d, opt, a).toString())
-          (opt, a) match {
-            case (None, a@Afk(_)) => (d, a.some).asRight
-            case (Some(Afk(_)), a@Afk(_)) => (d, a.some).asRight
-            case (Some(afk@Afk(_)), back@Back(_)) =>
-              (d.plus(Duration.ofMillis(back.ts.toInstant.toEpochMilli - afk.ts.toInstant.toEpochMilli)), back.some).asRight
-            case (Some(Back(_)), afk@Afk(_)) => (d, afk.some).asRight
-            // Back Backで例外
-            case _ => new RuntimeException("").asLeft
+    logger.debug(adts.toString)
+    adts.filter(isOpen).toNel.toRight(new RuntimeException("Openが0です")).flatMap { opens =>
+      if (opens.length > 1)
+        new RuntimeException("Openが複数存在します").asLeft
+      else if (adts.count(isClose) > 1)
+        new RuntimeException("Closeが複数存在します").asLeft
+      else if (adts.count(isAfk) === adts.count(isBack) || adts.count(isAfk) === adts.count(isBack) + 1) {
+        logger.debug(adts.filter(a => isAfk(a) || isBack(a)).sortBy(_.ts).toString())
+        adts
+          .filter(a => isAfk(a) || isBack(a)).sortBy(_.ts).foldLeftM[Either[RuntimeException, ?],
+                                                                     (Duration, Option[Adt])]((Duration.ZERO, None)) {
+            case ((d, opt), a) =>
+              logger.debug((d, opt, a).toString())
+              (opt, a) match {
+                case (None, a @ Afk(_))         => (d, a.some).asRight
+                case (Some(Afk(_)), a @ Afk(_)) => (d, a.some).asRight
+                case (Some(afk @ Afk(_)), back @ Back(_)) =>
+                  (d.plus(Duration.ofMillis(back.ts.toInstant.toEpochMilli - afk.ts.toInstant.toEpochMilli)), back.some).asRight
+                case (Some(Back(_)), afk @ Afk(_)) => (d, afk.some).asRight
+                // Back Backで例外
+                case _ => new RuntimeException("").asLeft
+              }
+          }.map(_._1).flatMap { resting =>
+            logger.debug(s"休憩時間: $resting")
+            val open = adts.filter(isOpen).head.ts
+            adts.sortBy(_.ts).last match {
+              case Back(_)   => (resting, Duration.between(now.get, open).abs().minus(resting)).asRight
+              case Afk(ts)   => (resting, Duration.between(ts, open).abs().minus(resting)).asRight
+              case Close(ts) => (resting, Duration.between(ts, open).abs().minus(resting)).asRight
+              case _         => new RuntimeException("").asLeft
+            }
           }
-      }.map(_._1).flatMap { resting =>
-        logger.debug(s"休憩時間: $resting")
-        val open = adts.filter(isOpen).head.ts
-        adts.sortBy(_.ts).last match {
-          case Back(_) => (resting, Duration.between(now.get, open).abs().minus(resting)).asRight
-          case Afk(ts) => (resting, Duration.between(ts, open).abs().minus(resting)).asRight
-          case Close(ts) => (resting, Duration.between(ts, open).abs().minus(resting)).asRight
-          case _ => new RuntimeException("").asLeft
-        }
-      }
+      } else
+        new RuntimeException(s"Afkの回数とBackの回数が不正です Afk: ${adts.count(isAfk)} Back: ${adts.count(isBack)}").asLeft
     }
   }
 
   def adtsToSummary(adts: NonEmptyList[Adt]): Either[RuntimeException, Summary] = {
-    logger.debug(adts.toString)
-    validateAdts(adts).flatMap{ opens =>
-      adtsToWorkingDuration(adts, None).map({
-        case (r, w) =>
-          Summary(
-            open = adts.filter(isOpen).head.ts,
-            close = adts.filter(isClose).head.ts,
-            restingDuration = r,
-            workingDuration = w,
-            dayOfWeek = opens.head.ts.toLocalDate.getDayOfWeek,
-            holiday = opens.head.ts.toLocalDate.holidayName
-          )
-      })
-    }: Either[RuntimeException, Summary]
-  }
-
-  def validateAdts(adts: NonEmptyList[Adt]): Either[RuntimeException, NonEmptyList[Adt]] = {
     logger.debug(adts.toString)
     adts.filter(isOpen).toNel.toRight(new RuntimeException("Openが0です")).flatMap { opens =>
       if (opens.length > 1)
@@ -260,7 +255,17 @@ object Hello extends IOApp with LazyLogging {
       else if (adts.count(isClose) > 1)
         new RuntimeException("Closeが複数存在します").asLeft
       else if (adts.count(isAfk) === adts.count(isBack) || adts.count(isAfk) === adts.count(isBack) + 1)
-        opens.asRight
+        adtsToWorkingDuration(adts, None).map({
+          case (r, w) =>
+            Summary(
+              open = adts.filter(isOpen).head.ts,
+              close = adts.filter(isClose).head.ts,
+              restingDuration = r,
+              workingDuration = w,
+              dayOfWeek = opens.head.ts.toLocalDate.getDayOfWeek,
+              holiday = opens.head.ts.toLocalDate.holidayName
+            )
+        }): Either[RuntimeException, Summary]
       else new RuntimeException(s"Afkの回数とBackの回数が不正です Afk: ${adts.count(isAfk)} Back: ${adts.count(isBack)}").asLeft
     }
   }
@@ -273,8 +278,8 @@ object Hello extends IOApp with LazyLogging {
                      holiday: Option[String]) {
 
     def toLocal = SummaryLocalTime(
-      open = open.withZoneSameInstant(zoneId).toLocalTime,
-      close = close.withZoneSameInstant(zoneId).toLocalTime,
+      open = open.withZoneSameInstant(asiaTokyo).toLocalTime,
+      close = close.withZoneSameInstant(asiaTokyo).toLocalTime,
       restingTime = LocalTime.of(0, 0).plus(restingDuration),
       workingTime = LocalTime.of(0, 0).plus(workingDuration),
       dayOfWeek = dayOfWeek,
