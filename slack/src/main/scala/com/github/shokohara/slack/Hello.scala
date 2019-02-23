@@ -174,8 +174,22 @@ object Hello extends IOApp with LazyLogging {
         .flatMap(_.toList.flatMap(_.toOption.toList).toNel.toRight(new RuntimeException("toNel")))
     } yield summary
 
-  def stringToAdt(a: Message): Either[RuntimeException, Either[RuntimeException, Adt]] = {
-    println(a)
+  /**
+    * SlackのメッセージをADTに変換します。<br>
+    * - 始業はopen<br>
+    * - 休憩開始はafkまたはqk<br>
+    * - 休憩終了はback<br>
+    * - 終業はclose<br>
+    * 基本的に始業とともに"open"発言することでMessage.tsの時間が始業の時間を示す（例→open）。
+    * 例外的に始業とともに"open"発言をし忘れた場合のためにopen時間を上書き可能にする文法がある（例→opened at 12:34）。
+    * "at"文法は[opened|afk|qk|backed|closed]と組み合わせることができる。
+    * "at "以降の時刻は24h表記かつ1桁時か1桁分の場合は先頭に0を加える形式（例→12:34 09:01）のみを許可する。
+    * 許可されない形式だった場合は、雑談扱いにする。
+    * これらの定義を満たさないメッセージは雑談扱いにする。
+    * @param a Slackのメッセージ
+    * @return `[計算結果を使った計算が続行されたくない場合, [警告として表示しつつ計算が続行されたい場合(雑談), 正常な結果]]`
+    */
+  def stringToAdt(a: Message): Either[RuntimeException, Either[RuntimeException, Adt]] =
     if (a.text === "open") Open(a.ts).asRight.asRight
     else if (a.text.startsWith("opened at ") || a.text.startsWith("opend at "))
       try {
@@ -190,7 +204,6 @@ object Hello extends IOApp with LazyLogging {
       new RuntimeException(s"${a}を${classOf[Adt].getName}に変換できません").asLeft.asRight: Either[
         RuntimeException,
         Either[RuntimeException, Adt]]
-  }
 
   def adtsToWorkingDuration(adts: NonEmptyList[Adt],
                             now: Option[ZonedDateTime]): Either[RuntimeException, (Duration, Duration)] =
