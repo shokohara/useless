@@ -61,6 +61,7 @@ lazy val web = (project in file("web"))
       "com.github.shokohara.playextra.QueryStringBindable._",
       "eu.timepit.refined.types.string._"
     ),
+    unmanagedResourceDirectories in Assets += baseDirectory.value / "front" / "dist",
     dockerBaseImage := "openjdk:8u181-jdk-stretch",
     daemonUser in Docker := "root",
     dockerEntrypoint := Seq("/bin/sh", "-c"),
