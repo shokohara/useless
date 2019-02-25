@@ -91,7 +91,8 @@ lazy val commonLibraryDependencies = Seq(
 lazy val commonSettings = Seq(
   scalacOptions += "-Xfatal-warnings",
   scalacOptions in(Compile, console) --= Seq("-Ywarn-unused:imports", "-Xfatal-warnings"),
-  wartremoverWarnings in(Compile, compile) ++= wartremover.Wart.Any
+  wartremoverWarnings in(Compile, compile) ++=
+     wartremover.Wart.Any
   :: wartremover.Wart.Var
   :: wartremover.Wart.AnyVal
   :: wartremover.Wart.ArrayEquals
@@ -102,6 +103,31 @@ lazy val commonSettings = Seq(
   :: wartremover.Wart.Equals
   :: wartremover.Wart.ExplicitImplicitTypes
   :: wartremover.Wart.FinalCaseClass
+  :: wartremover.Wart.FinalVal
+  :: wartremover.Wart.ImplicitConversion
+//  :: wartremover.Wart.ImplicitParameter
+  :: wartremover.Wart.IsInstanceOf
+  :: wartremover.Wart.JavaConversions
+  :: wartremover.Wart.JavaSerializable
+  :: wartremover.Wart.LeakingSealed
+  :: wartremover.Wart.MutableDataStructures
+  :: wartremover.Wart.NonUnitStatements
+//  :: wartremover.Wart.Nothing
+  :: wartremover.Wart.Null
+  :: wartremover.Wart.Option2Iterable
+  :: wartremover.Wart.OptionPartial
+  :: wartremover.Wart.Overloading 
+  :: wartremover.Wart.Product
+//  :: wartremover.Wart.PublicInference
+//  :: wartremover.Wart.Recursion
+  :: wartremover.Wart.Return
+  :: wartremover.Wart.Serializable
+//  :: wartremover.Wart.StringPlusAny
+  :: wartremover.Wart.Throw
+//  :: wartremover.Wart.ToString
+//  :: wartremover.Wart.TraversableOps
+  :: wartremover.Wart.TryPartial
+  :: wartremover.Wart.While 
   :: Nil,
   resolvers += "Artima Maven Repository" at "http://repo.artima.com/releases",
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")
