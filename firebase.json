@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": "underscore.co.jp",
+    "public": "front/dist",
     "ignore": [
       "firebase.json",
       "**/.*",
