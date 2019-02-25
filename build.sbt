@@ -46,7 +46,9 @@ lazy val web = (project in file("web"))
       "io.circe" %% "circe-generic" % circeVersion,
       "io.circe" %% "circe-parser" % circeVersion,
       "io.circe" %% "circe-java8" % circeVersion,
-      "io.circe" %% "circe-refined" % circeVersion
+      "io.circe" %% "circe-refined" % circeVersion,
+      "com.typesafe.play" %% "play-json" % "2.7.1", // 一時的にsbt-play-swaggerのために必要
+      "org.webjars" % "swagger-ui" % "2.2.0",
     ) ++ silencers ++ commonLibraryDependencies,
     buildInfoKeys := Seq[BuildInfoKey](
       "gitHeadCommit" -> git.gitHeadCommit.value.getOrElse(""),
@@ -61,13 +63,14 @@ lazy val web = (project in file("web"))
       "com.github.shokohara.playextra.QueryStringBindable._",
       "eu.timepit.refined.types.string._"
     ),
+    mappings in Universal += (swaggerTarget.value / swaggerFileName.value) → s"public/${swaggerFileName.value}",
+    swaggerDomainNameSpaces := Seq("models"),
     dockerBaseImage := "openjdk:8u181-jdk-stretch",
     daemonUser in Docker := "root",
     dockerEntrypoint := Seq("/bin/sh", "-c"),
     dockerCmd := Seq("/opt/docker/bin/web"),
   )
-  .enablePlugins(BuildInfoPlugin)
-  .enablePlugins(PlayScala)
+  .enablePlugins(BuildInfoPlugin, PlayScala, SwaggerPlugin)
   .dependsOn(slack)
 
 lazy val circeVersion = "0.11.1"
