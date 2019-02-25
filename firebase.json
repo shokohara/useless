@@ -1,0 +1,10 @@
+{
+  "hosting": {
+    "public": "underscore.co.jp",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  }
+}

@@ -1,4 +1,6 @@
 set -eu
+npm install -g firebase-tools
+firebase deploy --token $FIREBASE_TOKEN
 APP='jpcounderscorewww'
 cd web/front
 npm install
