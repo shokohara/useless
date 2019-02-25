@@ -88,7 +88,18 @@ lazy val commonLibraryDependencies = Seq(
 lazy val commonSettings = Seq(
   scalacOptions += "-Xfatal-warnings",
   scalacOptions in(Compile, console) --= Seq("-Ywarn-unused:imports", "-Xfatal-warnings"),
-  wartremoverWarnings in(Compile, compile) += wartremover.Wart.Any,
+  wartremoverWarnings in(Compile, compile) ++= wartremover.Wart.Any
+  :: wartremover.Wart.Var
+  :: wartremover.Wart.AnyVal
+  :: wartremover.Wart.ArrayEquals
+  :: wartremover.Wart.AsInstanceOf
+  :: wartremover.Wart.DefaultArguments
+  :: wartremover.Wart.EitherProjectionPartial
+  :: wartremover.Wart.Enumeration
+  :: wartremover.Wart.Equals
+  :: wartremover.Wart.ExplicitImplicitTypes
+  :: wartremover.Wart.FinalCaseClass
+  :: Nil,
   resolvers += "Artima Maven Repository" at "http://repo.artima.com/releases",
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")
 )

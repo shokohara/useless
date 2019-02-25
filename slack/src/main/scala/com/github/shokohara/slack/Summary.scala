@@ -4,12 +4,12 @@ import java.time._
 
 import cats.kernel.Eq
 
-case class Summary(open: ZonedDateTime,
-                   close: ZonedDateTime,
-                   restingDuration: Duration,
-                   workingDuration: Duration,
-                   dayOfWeek: DayOfWeek,
-                   holiday: Option[String]) {
+final case class Summary(open: ZonedDateTime,
+                         close: ZonedDateTime,
+                         restingDuration: Duration,
+                         workingDuration: Duration,
+                         dayOfWeek: DayOfWeek,
+                         holiday: Option[String]) {
 
   def toLocal(zoneId: ZoneId) = SummaryLocalTime(
     open = open.withZoneSameInstant(zoneId).toLocalTime,
