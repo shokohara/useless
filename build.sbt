@@ -105,26 +105,23 @@ lazy val commonSettings = Seq(
   :: wartremover.Wart.FinalCaseClass
   :: wartremover.Wart.FinalVal
   :: wartremover.Wart.ImplicitConversion
-//  :: wartremover.Wart.ImplicitParameter
   :: wartremover.Wart.IsInstanceOf
   :: wartremover.Wart.JavaConversions
   :: wartremover.Wart.JavaSerializable
   :: wartremover.Wart.LeakingSealed
   :: wartremover.Wart.MutableDataStructures
   :: wartremover.Wart.NonUnitStatements
-//  :: wartremover.Wart.Nothing
   :: wartremover.Wart.Null
   :: wartremover.Wart.Option2Iterable
   :: wartremover.Wart.OptionPartial
   :: wartremover.Wart.Overloading 
   :: wartremover.Wart.Product
-//  :: wartremover.Wart.PublicInference
 //  :: wartremover.Wart.Recursion
   :: wartremover.Wart.Return
   :: wartremover.Wart.Serializable
-//  :: wartremover.Wart.StringPlusAny
+  :: wartremover.Wart.StringPlusAny
   :: wartremover.Wart.Throw
-//  :: wartremover.Wart.ToString
+  :: wartremover.Wart.ToString
 //  :: wartremover.Wart.TraversableOps
   :: wartremover.Wart.TryPartial
   :: wartremover.Wart.While 
