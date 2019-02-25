@@ -3,5 +3,5 @@ cd front
 npm install
 npx webpack
 cd ..
-npm install -g firebase-tools
-firebase deploy --token $FIREBASE_TOKEN
+npm install firebase-tools
+npx firebase deploy --token $FIREBASE_TOKEN
