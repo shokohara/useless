@@ -55,7 +55,6 @@ object Hello extends IOApp with LazyLogging {
           _.getChannels.asScala
             .find(_.getName === applicationConfig.slackChannelName).toRight(new RuntimeException("")))
       h <- g(slack, applicationConfig, c, until.atStartOfDay(zoneId), Nil).unsafeRunSync()
-      _ = println(h.filter(_.user === u.getId).foreach(println))
     } yield (h, u)
   }
 

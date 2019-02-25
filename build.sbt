@@ -86,6 +86,9 @@ lazy val commonLibraryDependencies = Seq(
   "com.github.bigwheel" %% "util-backports" % "1.1"
 )
 lazy val commonSettings = Seq(
+  scalacOptions += "-Xfatal-warnings",
+  scalacOptions in(Compile, console) --= Seq("-Ywarn-unused:imports", "-Xfatal-warnings"),
+  wartremoverWarnings in(Compile, compile) += wartremover.Wart.Any,
   resolvers += "Artima Maven Repository" at "http://repo.artima.com/releases",
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")
 )
