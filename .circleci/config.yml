@@ -22,8 +22,11 @@ jobs:
           key: v1-dependencies--{{ checksum "build.sbt" }}
       - run: cat /dev/null | sbt test
       - run:
-          name: deploy setup
+          name: setup deploy to heroku
           command: ./.circleci/setup_heroku.sh
+      - run:
+          name: setup deploy to firebase
+          command: ./.circleci/setup_firebase.sh
       - run:
           name: deploy to heroku
           command: ./deploy_heroku.sh
