@@ -6,9 +6,9 @@ import pureconfig.generic.ProductHint
 import pureconfig.generic.semiauto.deriveReader
 import pureconfig.{CamelCase, ConfigFieldMapping, ConfigReader}
 
-case class ApplicationConfig(slackToken: NonEmptyString,
-                             slackChannelName: NonEmptyString,
-                             slackUserName: NonEmptyString)
+final case class ApplicationConfig(slackToken: NonEmptyString,
+                                   slackChannelName: NonEmptyString,
+                                   slackUserName: NonEmptyString)
 
 object ApplicationConfig {
   implicit def hint[T]: ProductHint[T] =
