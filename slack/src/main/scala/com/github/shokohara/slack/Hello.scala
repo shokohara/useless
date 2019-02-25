@@ -227,7 +227,10 @@ object Hello extends IOApp with LazyLogging {
           logger.debug(s"休憩時間: $resting")
           val open = adts.filter(isOpen).head.ts
           adts.sortBy(_.ts).last match {
-            case Back(_)   => (resting, Duration.between(now.get, open).abs().minus(resting)).asRight
+            case Back(_) =>
+              now.fold[Either[RuntimeException, (Duration, Duration)]](new RuntimeException("").asLeft) { zone =>
+                (resting, Duration.between(zone, open).abs().minus(resting)).asRight
+              }
             case Afk(ts)   => (resting, Duration.between(ts, open).abs().minus(resting)).asRight
             case Close(ts) => (resting, Duration.between(ts, open).abs().minus(resting)).asRight
             case _         => new RuntimeException("").asLeft
