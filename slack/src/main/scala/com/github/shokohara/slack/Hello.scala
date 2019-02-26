@@ -225,34 +225,40 @@ object Hello extends IOApp with LazyLogging {
             }
         }.map(_._1).flatMap { resting =>
           logger.debug(s"休憩時間: $resting")
-          val open = adts.filter(isOpen).head.ts
-          adts.sortBy(_.ts).last match {
-            case Back(_) =>
-              now.fold[Either[RuntimeException, (Duration, Duration)]](new RuntimeException("").asLeft) { zone =>
-                (resting, Duration.between(zone, open).abs().minus(resting)).asRight
+          adts
+            .filter(isOpen).headOption.fold[Either[RuntimeException, (Duration, Duration)]](
+              new RuntimeException("").asLeft) { open =>
+              adts.sortBy(_.ts).last match {
+                case Back(_) =>
+                  now.fold[Either[RuntimeException, (Duration, Duration)]](new RuntimeException("").asLeft) { zone =>
+                    (resting, Duration.between(zone, open.ts).abs().minus(resting)).asRight
+                  }
+                case Afk(ts)   => (resting, Duration.between(ts, open.ts).abs().minus(resting)).asRight
+                case Close(ts) => (resting, Duration.between(ts, open.ts).abs().minus(resting)).asRight
+                case _         => new RuntimeException("").asLeft
               }
-            case Afk(ts)   => (resting, Duration.between(ts, open).abs().minus(resting)).asRight
-            case Close(ts) => (resting, Duration.between(ts, open).abs().minus(resting)).asRight
-            case _         => new RuntimeException("").asLeft
-          }
+            }
         }
     }
 
   def adtsToSummary(adts: NonEmptyList[Adt]): Either[RuntimeException, Summary] = {
     logger.debug(adts.toString)
-    validateAdts(adts).flatMap { opens =>
-      adtsToWorkingDuration(adts, None).map({
-        case (r, w) =>
-          Summary(
-            open = adts.filter(isOpen).head.ts,
-            close = if (isAfk(adts.init.last)) adts.init.last.ts else adts.filter(isClose).head.ts,
-            restingDuration = r,
-            workingDuration = w,
-            dayOfWeek = opens.head.ts.toLocalDate.getDayOfWeek,
-            holiday = opens.head.ts.toLocalDate.holidayName
-          )
-      })
-    }: Either[RuntimeException, Summary]
+    for {
+      opens <- validateAdts(adts)
+      a <- adtsToWorkingDuration(adts, None)
+      b <- adts.init.lastOption.toRight(new RuntimeException)
+      open <- adts.filter(isOpen).headOption.toRight(new RuntimeException)
+      close <- (if (isAfk(b)) adts.init.lastOption else adts.filter(isClose).headOption).toRight(new RuntimeException)
+    } yield {
+      Summary(
+        open.ts,
+        close.ts,
+        restingDuration = a._1,
+        workingDuration = a._2,
+        dayOfWeek = opens.head.ts.toLocalDate.getDayOfWeek,
+        holiday = opens.head.ts.toLocalDate.holidayName
+      )
+    }
   }
 
   def validateAdts(adts: NonEmptyList[Adt]): Either[RuntimeException, NonEmptyList[Adt]] = {

@@ -122,7 +122,7 @@ lazy val commonSettings = Seq(
   :: wartremover.Wart.StringPlusAny
   :: wartremover.Wart.Throw
   :: wartremover.Wart.ToString
-//  :: wartremover.Wart.TraversableOps
+  :: wartremover.Wart.TraversableOps
   :: wartremover.Wart.TryPartial
   :: wartremover.Wart.While 
   :: Nil,
