@@ -206,10 +206,10 @@ object Hello extends IOApp with LazyLogging {
         Either[RuntimeException, Adt]]
 
   def adtsToWorkingDuration(adts: NonEmptyList[Adt],
-                            now: Option[ZonedDateTime]): Either[RuntimeException, (Duration, Duration)] =
-    validateAdts(adts).flatMap { opens =>
-      logger.debug(adts.filter(a => isAfk(a) || isBack(a)).sortBy(_.ts).toString())
-      adts
+                            now: Option[ZonedDateTime]): Either[RuntimeException, (Duration, Duration)] = {
+    logger.debug(adts.filter(a => isAfk(a) || isBack(a)).sortBy(_.ts).toString())
+    for {
+      resting <- adts
         .filter(a => isAfk(a) || isBack(a)).sortBy(_.ts).foldLeftM[Either[RuntimeException, ?],
                                                                    (Duration, Option[Adt])]((Duration.ZERO, None)) {
           case ((d, opt), a) =>
@@ -223,23 +223,20 @@ object Hello extends IOApp with LazyLogging {
               // Back Backで例外
               case _ => new RuntimeException("").asLeft
             }
-        }.map(_._1).flatMap { resting =>
-          logger.debug(s"休憩時間: $resting")
-          adts
-            .filter(isOpen).headOption.fold[Either[RuntimeException, (Duration, Duration)]](
-              new RuntimeException("").asLeft) { open =>
-              adts.sortBy(_.ts).last match {
-                case Back(_) =>
-                  now.fold[Either[RuntimeException, (Duration, Duration)]](new RuntimeException("").asLeft) { zone =>
-                    (resting, Duration.between(zone, open.ts).abs().minus(resting)).asRight
-                  }
-                case Afk(ts)   => (resting, Duration.between(ts, open.ts).abs().minus(resting)).asRight
-                case Close(ts) => (resting, Duration.between(ts, open.ts).abs().minus(resting)).asRight
-                case _         => new RuntimeException("").asLeft
-              }
-            }
-        }
-    }
+        }.map(_._1)
+      open <- {
+        logger.debug(s"休憩時間: $resting")
+        adts.filter(isOpen).headOption.toRight(new RuntimeException)
+      }
+      result <- adts.sortBy(_.ts).last match {
+        case Back(_) =>
+          now.toRight(new RuntimeException).map(zone => (resting, Duration.between(zone, open.ts).abs().minus(resting)))
+        case Afk(ts)   => (resting, Duration.between(ts, open.ts).abs().minus(resting)).asRight
+        case Close(ts) => (resting, Duration.between(ts, open.ts).abs().minus(resting)).asRight
+        case _         => new RuntimeException("").asLeft
+      }
+    } yield result
+  }
 
   def adtsToSummary(adts: NonEmptyList[Adt]): Either[RuntimeException, Summary] = {
     logger.debug(adts.toString)
