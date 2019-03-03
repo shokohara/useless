@@ -6,6 +6,7 @@ import cats.data.NonEmptyList
 import cats.derived.auto.eq._
 import cats.effect._
 import cats.implicits._
+import cats.syntax._
 import com.github.seratch.jslack.Slack
 import com.github.seratch.jslack.api.methods.SlackApiResponse
 import com.github.seratch.jslack.api.methods.request.channels._
@@ -272,6 +273,19 @@ object Hello extends IOApp with LazyLogging {
         opens.asRight
       else new RuntimeException(s"Afkの回数とBackの回数が不正です Afk: ${adts.count(isAfk)} Back: ${adts.count(isBack)}").asLeft
     }
+  }
+
+  def validateMessage(message: List[Message], bool: Boolean): Either[RuntimeException, List[Message]] = {
+    def f(a: List[Message]): Boolean =
+      a match {
+        case head :: secondHead :: tail =>
+          if (head.ts < secondHead.ts)
+            f(secondHead :: tail)
+          else false
+        case _ :: Nil => true
+        case Nil      => true
+      }
+    Either.cond(f(message), message, new RuntimeException("リストが不正です"))
   }
 
   val isOpen: Adt => Boolean = (_: Adt) match {
