@@ -26,7 +26,7 @@ class SlackController(cc: ControllerComponents)(implicit val ec: ExecutionContex
   implicit val summaryEncoder: Encoder[SummaryLocalTime] = deriveEncoder
 
   def toTsv(local: SummaryLocalTime): String =
-    s"${local.open}\t${local.close}\t${local.workingTime}\t${local.restingTime}"
+    s"${local.open}\t${local.close}\t${local.restingTime}\t${local.workingTime}"
 
   def index: Action[Request] = Action.asyncF(circe.json[Request]) { request =>
     val c = ApplicationConfig(request.body.token, request.body.channelName, request.body.userName)
