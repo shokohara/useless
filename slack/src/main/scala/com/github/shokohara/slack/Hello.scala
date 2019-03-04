@@ -196,7 +196,8 @@ object Hello extends IOApp with LazyLogging {
         val timeText = a.text.reverse.takeWhile(_.isSpaceChar === false).reverse
         val localTime = LocalTime.parse(timeText)
         Open(a.ts.withHour(localTime.getHour).withMinute(localTime.getMinute)).asRight.asRight
-      } catch { case e: RuntimeException => e.asLeft } else if (a.text === "afk" || a.text === "qk")
+      } catch { case e: RuntimeException => e.asLeft };
+    else if (a.text.startsWith("afk") || a.text.startsWith("qk"))
       Afk(a.ts).asRight.asRight
     else if (a.text === "back") Back(a.ts).asRight.asRight
     else if (a.text === "close") Close(a.ts).asRight.asRight
