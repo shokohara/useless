@@ -89,7 +89,7 @@ lazy val commonLibraryDependencies = Seq(
   "com.github.bigwheel" %% "util-backports" % "1.1"
 )
 lazy val commonSettings = Seq(
-  scalacOptions += "-Xfatal-warnings",
+  scalacOptions ++= Seq("-Xfatal-warnings", "-feature", "-language:higherKinds"),
   scalacOptions in(Compile, console) --= Seq("-Ywarn-unused:imports", "-Xfatal-warnings"),
   wartremoverWarnings in(Compile, compile) ++=
      wartremover.Wart.Any
