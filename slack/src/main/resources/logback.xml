@@ -6,7 +6,7 @@
     </encoder>
   </appender>
 
-  <logger name="com.github.seratch.jslack.common.http.SlackHttpClient" level="DEBUG"/>
+  <logger name="com.github.seratch.jslack.common.http.SlackHttpClient" level="INFO"/>
 
   <root level="DEBUG">
     <appender-ref ref="STDOUT"/>
