@@ -126,7 +126,6 @@ lazy val commonSettings = Seq(
   :: wartremover.Wart.TryPartial
   :: wartremover.Wart.While 
   :: Nil,
-  resolvers += "Artima Maven Repository" at "http://repo.artima.com/releases",
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")
 )
 addCommandAlias("fmt", "; compile:scalafmt; test:scalafmt; scalafmtSbt")
