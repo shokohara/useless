@@ -64,14 +64,12 @@ lazy val web = (project in file("web"))
       "com.github.shokohara.playextra.QueryStringBindable._",
       "eu.timepit.refined.types.string._"
     ),
-    (stage in Docker) <<= (stage in Docker).dependsOn(swagger),
-    swaggerDomainNameSpaces := Seq("models"),
     dockerBaseImage := "openjdk:8u181-jdk-stretch",
     daemonUser in Docker := "root",
     dockerEntrypoint := Seq("/bin/sh", "-c"),
     dockerCmd := Seq("/opt/docker/bin/web"),
   )
-  .enablePlugins(BuildInfoPlugin, PlayScala, SwaggerPlugin)
+  .enablePlugins(BuildInfoPlugin, PlayScala)
   .dependsOn(slack)
 
 lazy val circeVersion = "0.11.1"
