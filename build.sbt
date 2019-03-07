@@ -64,7 +64,7 @@ lazy val web = (project in file("web"))
       "com.github.shokohara.playextra.QueryStringBindable._",
       "eu.timepit.refined.types.string._"
     ),
-    mappings in Docker += (swaggerTarget.value / swaggerFileName.value) -> s"public/${swaggerFileName.value}",
+    (stage in Docker) <<= (stage in Docker).dependsOn(swagger),
     swaggerDomainNameSpaces := Seq("models"),
     dockerBaseImage := "openjdk:8u181-jdk-stretch",
     daemonUser in Docker := "root",
