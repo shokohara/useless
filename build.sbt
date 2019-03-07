@@ -22,7 +22,8 @@ lazy val slack = (project in file("slack"))
       "ch.qos.logback" % "logback-classic" % "1.2.3",
       "org.tpolecat" %% "doobie-core" % doobieVersion,
       "org.tpolecat" %% "doobie-postgres" % doobieVersion,
-      "org.tpolecat" %% "doobie-specs2" % doobieVersion
+      "org.tpolecat" %% "doobie-specs2" % doobieVersion,
+      "com.lihaoyi" %% "sourcecode" % "0.1.5"
     ) ++ commonLibraryDependencies
   )
 lazy val seed = (project in file("seed")).settings(
