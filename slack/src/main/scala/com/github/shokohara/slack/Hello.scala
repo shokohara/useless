@@ -2,11 +2,10 @@ package com.github.shokohara.slack
 
 import java.time._
 
-import cats.data.NonEmptyList
+import cats.data._
 import cats.derived.auto.eq._
 import cats.effect._
 import cats.implicits._
-import cats.syntax._
 import com.github.seratch.jslack.Slack
 import com.github.seratch.jslack.api.methods.SlackApiResponse
 import com.github.seratch.jslack.api.methods.request.channels._
@@ -37,143 +36,159 @@ object Hello extends IOApp with LazyLogging {
 
     def toEither: Either[RuntimeException, A] =
       Either.cond(a.isOk, a, new RuntimeException(a.getError))
+
+    def toValidateNec: ValidatedNec[RuntimeException, A] =
+      Validated.condNec(a.isOk, a, new RuntimeException(a.getError))
   }
 
   def f(applicationConfig: ApplicationConfig,
         until: LocalDate,
-        zoneId: ZoneId): IO[Either[RuntimeException, (List[Message], User)]] = IO {
+        zoneId: ZoneId): IO[ValidatedNec[RuntimeException, (List[Message], User)]] = IO {
     val slack: Slack = Slack.getInstance
-    for {
-      u <- UsersListRequest
-        .builder().token(applicationConfig.slackToken).build().pipe(slack.methods().usersList)
-        .toEither.flatMap(
-          _.getMembers.asScala
-            .filter(_.getName === applicationConfig.slackUserName).toList.toNel
-            .toRight(new RuntimeException("ユーザーが見つかりません"))
-            .flatMap(a => Either.cond(a.length === 1, a.head, new RuntimeException("ユーザーが重複しています"))))
-      c <- ChannelsListRequest
-        .builder().token(applicationConfig.slackToken).build().pipe(slack.methods().channelsList).toEither.flatMap(
-          _.getChannels.asScala
-            .find(_.getName === applicationConfig.slackChannelName).toRight(new RuntimeException("")))
-      h <- g(slack, applicationConfig, c, until.atStartOfDay(zoneId), Nil).unsafeRunSync()
-    } yield (h, u)
+    UsersListRequest
+      .builder().token(applicationConfig.slackToken).build().pipe(slack.methods().usersList)
+      .validNec.andThen(
+        _.getMembers.asScala
+          .filter(_.getName === applicationConfig.slackUserName).toList.toNel
+          .toRight(new RuntimeException("ユーザーが見つかりません")).toValidatedNec
+          .andThen(a => Validated.condNec(a.length === 1, a.head, new RuntimeException("ユーザーが重複しています"))))
+      .andThen { u =>
+        ChannelsListRequest
+          .builder().token(applicationConfig.slackToken).build().pipe(slack.methods().channelsList).validNec.andThen(
+            _.getChannels.asScala
+              .find(_.getName === applicationConfig.slackChannelName).toRight(new RuntimeException(""))
+              .toValidatedNec)
+          .andThen { c =>
+            g(slack, applicationConfig, c, until.atStartOfDay(zoneId), Nil).unsafeRunSync().andThen { h =>
+              (h, u).validNec
+            }
+          }
+      }
   }
 
   val slackCount: Int Refined Closed[W.`0`.T, W.`1000`.T] = 200
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def g(slack: Slack,
         applicationConfig: ApplicationConfig,
         c: Channel,
         until: ZonedDateTime,
-        acc: List[Message]): IO[Either[RuntimeException, List[Message]]] =
-    IO.fromEither(
-        Try(
-          ChannelsHistoryRequest
-            .builder().token(applicationConfig.slackToken).channel(c.getId).count(slackCount.value).pipe { b =>
-              acc.toNel.fold(b)(nel =>
-                b.latest(toTimestampString(nel.map(_.ts).minimum))
-                  .oldest(toTimestampString(nel.map(_.ts).minimum.minusDays(1))))
-            }
-            .build().pipe(slack.methods().channelsHistory)
-            .toEither
-            .map(_.getMessages.asScala.toList.map(m2m).sequence[Either[RuntimeException, ?], Message])
-        ).toEither.joinRight).flatMap { h =>
-        h.fold(
-          a => IO.pure(a.asLeft),
-          h => {
-            logger.debug(h.length.show)
-            h.toNel.fold[IO[Either[RuntimeException, List[Message]]]](IO.pure(acc.asRight))(
-              h =>
-                if (h.forall(a => acc.nonEmpty && acc.exists(_ === a)))
-                  IO.pure(new RuntimeException("レスポンスボディの要素が重複しました").asLeft)
-                else {
-                  h.nonEmptyPartition(zdt => Either.cond(zdt.ts < until, zdt, zdt)).fold(
-                      _ => IO.pure(acc.asRight),
-                      n => {
-                        logger.debug((n ++ acc).map(_.ts).maximum.show)
-                        logger.debug((n ++ acc).map(_.ts).minimum.show)
-                        logger.debug("g")
-                        g(slack, applicationConfig, c, until, acc ++ n.toList)
-                      },
-                      (left, right) => {
-                        logger.debug(left.map(_.ts).map(_.show).mkString_("", "\n", ""))
-                        logger.debug(right.map(_.ts).map(_.show).mkString_("", "\n", ""))
-                        IO.pure((acc ++ right.toList).asRight)
-                      }
-                    )
-              })
+        acc: List[Message]): IO[ValidatedNec[RuntimeException, List[Message]]] =
+    IO(
+      Try(
+        ChannelsHistoryRequest
+          .builder().token(applicationConfig.slackToken).channel(c.getId).count(slackCount.value).pipe { b =>
+            acc.toNel.fold(b)(nel =>
+              b.latest(toTimestampString(nel.map(_.ts).minimum))
+                .oldest(toTimestampString(nel.map(_.ts).minimum.minusDays(1))))
+          }
+          .build().pipe(slack.methods().channelsHistory)
+          .toEither
+          .map(_.getMessages.asScala.toList.traverse[ValidatedNec[RuntimeException, ?], Message](m2m))
+          .toValidatedNec
+      ).toEither.toValidatedNec.combineAll.combineAll).map(
+      _.andThen { listMessage =>
+        logger.debug(listMessage.length.show)
+        listMessage.toNel.fold[ValidatedNec[RuntimeException, List[Message]]](acc.validNec)(
+          h =>
+            if (h.forall(a => acc.nonEmpty && acc.exists(_ === a)))
+              new RuntimeException("レスポンスボディの要素が重複しました").invalidNec
+            else {
+              h.nonEmptyPartition(zdt => Either.cond(zdt.ts < until, zdt, zdt)).fold(
+                  _ => acc.validNec,
+                  n => {
+                    logger.debug((n ++ acc).map(_.ts).maximum.show)
+                    logger.debug((n ++ acc).map(_.ts).minimum.show)
+                    logger.debug("g")
+                    g(slack, applicationConfig, c, until, acc ++ n.toList).unsafeRunSync()
+                  },
+                  (left, right) => {
+                    logger.debug(left.map(_.ts).map(_.show).mkString_("", "\n", ""))
+                    logger.debug(right.map(_.ts).map(_.show).mkString_("", "\n", ""))
+                    (acc ++ right.toList).validNec
+                  }
+                )
           }
         )
       }
+    )
 
-  def m2m(a: com.github.seratch.jslack.api.model.Message): Either[RuntimeException, Message] =
+  def m2m(a: com.github.seratch.jslack.api.model.Message): ValidatedNec[RuntimeException, Message] =
     d2d(a.getTs).map(ts => slack.Message(a.getUser, ts, a.getText))
 
-  def d2d(a: String): Either[RuntimeException, ZonedDateTime] =
+  def d2d(a: String): ValidatedNec[RuntimeException, ZonedDateTime] =
     try {
       a.split('.').toList match {
         case second :: nano :: Nil =>
           ZonedDateTime
-            .from(Instant.ofEpochSecond(second.toLong).atOffset(ZoneOffset.UTC)).withNano(nano.toInt * 1000).asRight
-        case _ => new RuntimeException("tsのZonedDateTime変換が失敗しました").asLeft
+            .from(Instant.ofEpochSecond(second.toLong).atOffset(ZoneOffset.UTC)).withNano(nano.toInt * 1000).validNec
+        case _ => new RuntimeException("tsのZonedDateTime変換が失敗しました").invalidNec
       }
     } catch {
-      case e: RuntimeException => e.asLeft
+      case e: RuntimeException => e.invalidNec
     }
 
   def toSummary(applicationConfig: ApplicationConfig,
                 until: LocalDate,
-                zoneId: ZoneId): IO[Either[RuntimeException, Summary]] =
-    f(applicationConfig, until, zoneId).flatMap(_.fold(IO.raiseError, {
+                zoneId: ZoneId): IO[ValidatedNec[RuntimeException, Summary]] =
+    f(applicationConfig, until, zoneId).map(_.andThen {
       case (list, u) =>
-        IO.fromEither(list.toNel.toRight(new RuntimeException("メッセージが存在しません")).map(latestSummary(_, u, zoneId)))
-    }))
+        list.toNel.toValidNec(new RuntimeException("メッセージが存在しません")).andThen(latestSummary(_, u, zoneId))
+    })
 
   def run(args: List[String]): IO[ExitCode] = {
     val asiaTokyo = ZoneId.of("Asia/Tokyo")
-    config
-      .flatMap(f(_, LocalDate.now().plusDays(1), asiaTokyo))
-      .flatMap(_.fold(
-        IO.raiseError, {
-          case (list, u) =>
-            IO.fromEither(
-              list.toNel
-                .toRight(new RuntimeException("メッセージが存在しません"))
-                .flatMap(nel =>
-                  latestSummary(nel, u, asiaTokyo).map(a => println(a.toLocal(asiaTokyo))).leftFlatMap { e =>
-                    logger.error("", e)
-                    latestWorkingDuration(nel, u, ZonedDateTime.now(asiaTokyo).some, asiaTokyo).map { d =>
-                      println(s"""Resting:${LocalTime.of(0, 0).plus(d._1)}""")
-                      println(s"""Working:${LocalTime.of(0, 0).plus(d._2)}""")
-                    }
-                }))
-        }
-      )).map(_ => ExitCode.Success)
+    for {
+      c <- config
+      d <- IO(f(c, LocalDate.now().plusDays(1), asiaTokyo).map(_.andThen {
+        case (list, u) =>
+          list.toNel
+            .toRight(new RuntimeException("メッセージが存在しません")).toValidatedNec
+            .andThen(nel =>
+              latestSummary(nel, u, asiaTokyo).map(x => println(x.toLocal(asiaTokyo))).andThen { _ =>
+                latestWorkingDuration(nel, u, ZonedDateTime.now(asiaTokyo).some, asiaTokyo)
+            })
+      }))
+      result <- d.map(
+        _.fold(
+          exceptions => {
+            exceptions.toList.foreach(logger.warn(sourcecode.Enclosing(), _: Throwable))
+            ExitCode.Error
+          },
+          y => {
+            println(s"""Resting:${LocalTime.of(0, 0).plus(y._1)}""")
+            println(s"""Working:${LocalTime.of(0, 0).plus(y._2)}""")
+            ExitCode.Success
+          }
+        ))
+    } yield result
   }
 
-  def latestSummary(messages: NonEmptyList[Message], user: User, zoneId: ZoneId): Either[RuntimeException, Summary] =
-    listLatestDateAdt(messages, user, zoneId: ZoneId).flatMap(adtsToSummary)
+  def latestSummary(messages: NonEmptyList[Message],
+                    user: User,
+                    zoneId: ZoneId): ValidatedNec[RuntimeException, Summary] =
+    listLatestDateAdt(messages, user, zoneId: ZoneId).andThen(adtsToSummary)
 
   def latestWorkingDuration(messages: NonEmptyList[Message],
                             user: User,
                             now: Option[ZonedDateTime],
-                            zoneId: ZoneId): Either[RuntimeException, (Duration, Duration)] =
-    listLatestDateAdt(messages, user, zoneId).flatMap(adtsToWorkingDuration(_, now))
+                            zoneId: ZoneId): ValidatedNec[RuntimeException, (Duration, Duration)] =
+    listLatestDateAdt(messages, user, zoneId).andThen(adtsToWorkingDuration(_, now))
 
   def listLatestDateAdt(messages: NonEmptyList[Message],
                         user: User,
-                        zoneId: ZoneId): Either[RuntimeException, NonEmptyList[Adt]] =
-    for {
-      myMessages <- messages
-        .filter(_.user === user.getId).toNel
-        .toRight(new RuntimeException(s"${user.getId} のメッセージが存在しません"))
-      latestDate = myMessages.map(_.ts).maximum.withZoneSameInstant(zoneId).toLocalDate
-      summary <- myMessages
-        .filter(_.ts.withZoneSameInstant(zoneId).toLocalDate === latestDate).toNel.toRight(
-          new RuntimeException(s"$latestDate のメッセージが存在しません"))
-        .flatMap(_.map(stringToAdt).sequence[Either[RuntimeException, ?], Either[RuntimeException, Adt]])
-        .flatMap(_.toList.flatMap(_.toOption.toList).toNel.toRight(new RuntimeException("toNel")))
-    } yield summary
+                        zoneId: ZoneId): ValidatedNec[RuntimeException, NonEmptyList[Adt]] =
+    messages
+      .filter(_.user === user.getId).toNel
+      .toRight(new RuntimeException(s"${user.getId} のメッセージが存在しません")).toValidatedNec
+      .andThen { myMessages =>
+        val latestDate = myMessages.map(_.ts).maximum.withZoneSameInstant(zoneId).toLocalDate
+        myMessages
+          .filter(_.ts.withZoneSameInstant(zoneId).toLocalDate === latestDate).toNel
+          .toRight(new RuntimeException(s"$latestDate のメッセージが存在しません")).toValidatedNec
+          .andThen(_.traverse[ValidatedNec[RuntimeException, ?], ValidatedNec[RuntimeException, Adt]](stringToAdt))
+          .andThen(_.toList.flatMap(_.toOption.toList).toNel.toRight(new RuntimeException("toNel")).toValidatedNec)
+      }
 
   /**
     * SlackのメッセージをADTに変換します。<br>
@@ -190,92 +205,96 @@ object Hello extends IOApp with LazyLogging {
     * @param a Slackのメッセージ
     * @return `[計算結果を使った計算が続行されたくない場合, [警告として表示しつつ計算が続行されたい場合(雑談), 正常な結果]]`
     */
-  def stringToAdt(a: Message): Either[RuntimeException, Either[RuntimeException, Adt]] =
-    if (a.text === "open") Open(a.ts).asRight.asRight
+  def stringToAdt(a: Message): ValidatedNec[RuntimeException, ValidatedNec[RuntimeException, Adt]] =
+    if (a.text === "open") Open(a.ts).validNec.validNec
     else if (a.text.startsWith("opened at ") || a.text.startsWith("opend at "))
       try {
         val timeText = a.text.reverse.takeWhile(_.isSpaceChar === false).reverse
         val localTime = LocalTime.parse(timeText)
-        Open(a.ts.withHour(localTime.getHour).withMinute(localTime.getMinute)).asRight.asRight
-      } catch { case e: RuntimeException => e.asLeft };
-    else if (a.text.startsWith("afk") || a.text.startsWith("qk"))
-      Afk(a.ts).asRight.asRight
-    else if (a.text === "back") Back(a.ts).asRight.asRight
-    else if (a.text === "close") Close(a.ts).asRight.asRight
+        Open(a.ts.withHour(localTime.getHour).withMinute(localTime.getMinute)).validNec.validNec
+      } catch { case e: RuntimeException => e.invalidNec } else if (a.text === "afk" || a.text === "qk")
+      Afk(a.ts).validNec.validNec
+    else if (a.text === "back") Back(a.ts).validNec.validNec
+    else if (a.text === "close") Close(a.ts).validNec.validNec
     else
-      new RuntimeException(s"${a}を${classOf[Adt].getName}に変換できません").asLeft.asRight: Either[
+      new RuntimeException(s"${a}を${classOf[Adt].getName}に変換できません").invalidNec.validNec: ValidatedNec[
         RuntimeException,
-        Either[RuntimeException, Adt]]
+        ValidatedNec[RuntimeException, Adt]]
 
   def adtsToWorkingDuration(adts: NonEmptyList[Adt],
-                            now: Option[ZonedDateTime]): Either[RuntimeException, (Duration, Duration)] = {
+                            now: Option[ZonedDateTime]): ValidatedNec[RuntimeException, (Duration, Duration)] = {
     logger.debug(adts.filter(a => isAfk(a) || isBack(a)).sortBy(_.ts).toString())
-    for {
-      resting <- adts
-        .filter(a => isAfk(a) || isBack(a)).sortBy(_.ts).foldLeftM[Either[RuntimeException, ?],
-                                                                   (Duration, Option[Adt])]((Duration.ZERO, None)) {
-          case ((d, opt), a) =>
-            logger.debug((d, opt, a).toString())
-            (opt, a) match {
-              case (None, a @ Afk(_))         => (d, a.some).asRight
-              case (Some(Afk(_)), a @ Afk(_)) => (d, a.some).asRight
-              case (Some(afk @ Afk(_)), back @ Back(_)) =>
-                (d.plus(Duration.between(afk.ts, back.ts)), back.some).asRight
-              case (Some(Back(_)), afk @ Afk(_)) => (d, afk.some).asRight
-              // Back Backで例外
-              case _ => new RuntimeException("").asLeft
-            }
-        }.map(_._1)
-      open <- {
+    adts
+      .filter(a => isAfk(a) || isBack(a)).sortBy(_.ts).foldLeftM[Either[RuntimeException, ?], (Duration, Option[Adt])](
+        (Duration.ZERO, None)) {
+        case ((d, opt), a) =>
+          logger.debug((d, opt, a).toString())
+          (opt, a) match {
+            case (None, a @ Afk(_))         => (d, a.some).asRight
+            case (Some(Afk(_)), a @ Afk(_)) => (d, a.some).asRight
+            case (Some(afk @ Afk(_)), back @ Back(_)) =>
+              (d.plus(Duration.between(afk.ts, back.ts)), back.some).asRight
+            case (Some(Back(_)), afk @ Afk(_)) => (d, afk.some).asRight
+            // Back Backで例外
+            case _ => new RuntimeException("").asLeft
+          }
+      }.map(_._1).toValidatedNec.andThen { resting =>
         logger.debug(s"休憩時間: $resting")
-        adts.filter(isOpen).headOption.toRight(new RuntimeException)
+        adts.filter(isOpen).headOption.toRight(new RuntimeException).toValidatedNec.andThen { open =>
+          adts.sortBy(_.ts).last match {
+            case Back(_) =>
+              now
+                .toRight(new RuntimeException).toValidatedNec.andThen(zone =>
+                  (resting, Duration.between(zone, open.ts).abs().minus(resting)).validNec)
+            case Afk(ts)   => (resting, Duration.between(ts, open.ts).abs().minus(resting)).validNec
+            case Close(ts) => (resting, Duration.between(ts, open.ts).abs().minus(resting)).validNec
+            case _         => new RuntimeException("").invalidNec
+          }
+        }
       }
-      result <- adts.sortBy(_.ts).last match {
-        case Back(_) =>
-          now.toRight(new RuntimeException).map(zone => (resting, Duration.between(zone, open.ts).abs().minus(resting)))
-        case Afk(ts)   => (resting, Duration.between(ts, open.ts).abs().minus(resting)).asRight
-        case Close(ts) => (resting, Duration.between(ts, open.ts).abs().minus(resting)).asRight
-        case _         => new RuntimeException("").asLeft
-      }
-    } yield result
   }
 
-  def adtsToSummary(adts: NonEmptyList[Adt]): Either[RuntimeException, Summary] = {
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  def adtsToSummary(adts: NonEmptyList[Adt]): ValidatedNec[RuntimeException, Summary] = {
     logger.debug(adts.toString)
-    for {
-      opens <- validateAdts(adts)
-      a <- adtsToWorkingDuration(adts, None)
-      b <- adts.init.lastOption.toRight(new RuntimeException)
-      open <- adts.filter(isOpen).headOption.toRight(new RuntimeException)
-      close <- (if (isAfk(b)) adts.init.lastOption else adts.filter(isClose).headOption).toRight(new RuntimeException)
-    } yield {
-      Summary(
-        open.ts,
-        close.ts,
-        restingDuration = a._1,
-        workingDuration = a._2,
-        dayOfWeek = opens.head.ts.toLocalDate.getDayOfWeek,
-        holiday = opens.head.ts.toLocalDate.holidayName
-      )
-    }
+    adts.init.lastOption
+      .toValidNec(new RuntimeException("")).andThen(
+        a =>
+          (validateAdts(adts),
+           adtsToWorkingDuration(adts, None),
+           adts.filter(isOpen).headOption.toRight(new RuntimeException("")).toValidatedNec,
+           (if (isAfk(a)) adts.init.lastOption else adts.filter(isClose).headOption)
+             .toRight(new RuntimeException)
+             .toValidatedNec).mapN {
+            case (opens, b, open, close) =>
+              Summary(
+                open.ts,
+                close.ts,
+                restingDuration = b._1,
+                workingDuration = b._2,
+                dayOfWeek = opens.head.ts.toLocalDate.getDayOfWeek,
+                holiday = opens.head.ts.toLocalDate.holidayName
+              )
+        })
   }
 
-  def validateAdts(adts: NonEmptyList[Adt]): Either[RuntimeException, NonEmptyList[Adt]] = {
+  def validateAdts(adts: NonEmptyList[Adt]): ValidatedNec[RuntimeException, NonEmptyList[Adt]] = {
     logger.debug(adts.toString)
-    adts.filter(isOpen).toNel.toRight(new RuntimeException("Openが0です")).flatMap { opens =>
+    adts.filter(isOpen).toNel.toRight(new RuntimeException("Openが0です")).toValidatedNec.andThen { opens =>
       if (opens.length > 1)
-        new RuntimeException("Openが複数存在します").asLeft
+        new RuntimeException("Openが複数存在します").invalidNec
       else if (adts.count(isClose).isEmpty)
-        new RuntimeException("Closeが0です").asLeft
+        new RuntimeException("Closeが0です").invalidNec
       else if (adts.count(isClose) > 1)
-        new RuntimeException("Closeが複数存在します").asLeft
+        new RuntimeException("Closeが複数存在します").invalidNec
       else if (adts.count(isAfk) === adts.count(isBack) || adts.count(isAfk) === adts.count(isBack) + 1)
-        opens.asRight
-      else new RuntimeException(s"Afkの回数とBackの回数が不正です Afk: ${adts.count(isAfk)} Back: ${adts.count(isBack)}").asLeft
+        opens.validNec
+      else
+        new RuntimeException(s"Afkの回数とBackの回数が不正です Afk: ${adts.count(isAfk)} Back: ${adts.count(isBack)}").invalidNec
     }
   }
 
-  def validateMessage(message: List[Message], bool: Boolean): Either[RuntimeException, List[Message]] = {
+  def validateMessage(message: List[Message], bool: Boolean): ValidatedNec[RuntimeException, List[Message]] = {
     def f(a: List[Message]): Boolean =
       a match {
         case head :: secondHead :: tail =>
@@ -285,7 +304,8 @@ object Hello extends IOApp with LazyLogging {
         case _ :: Nil => true
         case Nil      => true
       }
-    Either.cond(f(message), message, new RuntimeException("リストが不正です"))
+    if (f(message) === true) message.validNec
+    else new RuntimeException("リストが不正です").invalidNec
   }
 
   val isOpen: Adt => Boolean = (_: Adt) match {
