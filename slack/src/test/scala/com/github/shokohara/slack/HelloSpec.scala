@@ -79,5 +79,16 @@ class HelloSpec extends FlatSpec with Matchers {
         .map(_.leftMap(_.map(_.getMessage))) shouldEqual
         s"Message($userId,2019-02-20T01:44:03.148800Z,猫に投薬してました :cat2:)をcom.github.shokohara.slack.Adtに変換できません".invalidNec.validNec
     }
+    it should "work with " in {
+      val asiaTokyo = ZoneId.of("Asia/Tokyo")
+      def s2z(s: String): ZonedDateTime = ZonedDateTime.of(LocalDateTime.parse(s"2019-03-07T$s"), asiaTokyo)
+      val adts = Open(s2z("09:27")) :: Close(s2z("22:07")) :: Back(s2z("23:46")) :: Close(s2z("23:59")) :: Nil
+      adtsToSummary(NonEmptyList.fromListUnsafe(adts)) shouldBe Summary(ZonedDateTime.now(),
+                                                                        ZonedDateTime.now(),
+                                                                        Duration.ZERO,
+                                                                        Duration.ZERO,
+                                                                        DayOfWeek.FRIDAY,
+                                                                        None)
+    }
   }
 }
