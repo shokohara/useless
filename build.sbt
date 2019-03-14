@@ -27,7 +27,7 @@ lazy val slack = (project in file("slack"))
     ) ++ commonLibraryDependencies
   )
 lazy val seed = (project in file("seed")).settings(
-  libraryDependencies += scalaTest
+  libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.2.27"
 )
 lazy val lol = (project in file("lol"))
   .settings(commonSettings)
