@@ -1,5 +1,5 @@
 set -eu
-APP='jpcounderscorewww'
+APP='jpcounderscoreuseless'
 sbt 'web/docker:publishLocal'
 docker tag web:0.1.0-SNAPSHOT registry.heroku.com/$APP/web
 heroku container:login
