@@ -48,36 +48,40 @@ object Main {
             "Manual: Google Japanese Input Preference".leaf,
             "iterm2".node(
               """
-                |General > Closing > UNCHECK Confirm closing multiple sessions
-                |General > Closing > UNCHECK Confirm "Quit iTerm2" command
-                |General > Closing > CHECK Smart window placement
-                |General > Closing > UNCHECK Adjust window when changing font size
-                |General > Closing > UNCHECK Native full screen windows
+                |General > Closing > UNCHECK ALL
+                |General > Window > [x] Smart window placement
+                |General > Window > [ ] Adjust window when changing font size
+                |General > Window > [ ] Native full screen windows
                 |Appearance > Tabs > Theme > Dark
                 |Appearance > Tabs > Theme > UNCHECK ALL
-                |Appearance > Tabs > Panes > UNCHECK Show per-pane title bar with split panes
-                |Appearance > UNCHECK Show current job name
-                |Appearance > Window > CHECK Hide scrollbars
-                |Keys > HotKey > CHECK Show/hide iTerm2 with a system-wide hotkey
-                |Keys > HotKey > CHECK Hotkey toggles a dedicated window with profile
-                |Keys > HotKey > UNCHECK Hotkey window hides when focus is lost
-                |Profiles > SELECT Hotkey Window > Window > Style > CHECK Show/hide iTerm2 with a system-wide hotkey
-                |Profiles > SELECT Hotkey Window > Terminal > Scrollback Lines > INPUT 0
-                |Profiles > SELECT Hotkey Window > Keys > Left option key acts as > INPUT +Esc
-                |Profiles > SELECT Hotkey Window > Keys > Right option key acts as > INPUT +Esc
-                |Profiles > Hotkey window set as default
+                |Appearance > Panes > [ ] Show per-pane title bar with split panes
+                |Appearance > Window & Tab Titles > [ ] Show current job name
+                |Appearance > Window > [ ] Hide scrollbars
+                |Keys > HotKey > [x] Show/hide iTerm2 with a system-wide hotkey (Ctrl Alt Space)
+                |Keys > HotKey > [x] Hotkey window hides when focus is lost
               """.stripMargin.node(
-                "dotfiles".node(
-                  "tmux".node(
-                    """ssh-keygen -t ed25519 -f $HOME/.ssh/id_ed25519 -q -N """"".node(
-                      "ghq home".node(
-                        "ghq ???".leaf
-                      ),
-                      "go home".node(
-                        "about go".leaf
+                "zsh".node(
+                  "brew install zsh".node(
+                    "fzf".node(
+                      "git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf".leaf,
+                      "~/.fzf/install".leaf,
+                      "dotfiles".node(
+                        "tmux".node(
+                          """ssh-keygen -t ed25519 -f $HOME/.ssh/id_ed25519 -q -N """"".node(
+                            "ghq home".node(
+                              "ghq ???".leaf
+                            ),
+                            "go home".node(
+                              "about go".leaf
+                            )
+                          )
+                        ),
+                        """sh -c "$(curl -fsSL https://raw.githubusercontent.com/zdharma/zplugin/master/doc/install.sh)"""".leaf
                       )
-                    )
-                  )
+                    ),
+                    "sudo sh -c 'echo $(which zsh) >> /etc/shells'".leaf,
+                    "chsh -s $(which zsh)".leaf
+                  ),
                 )
               )
             )
