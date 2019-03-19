@@ -37,16 +37,22 @@ object Main {
         |System Preferences > Sharing > [x] Remote Login
         |System Preferences > iCloud > [x] Back to My Mac
       """.stripMargin.leaf,
-      "sudo visudo\nYOUR_USER_NAME ALL=(ALL) NOPASSWD: ALL".node(
+      """
+        |sudo visudo"
+        |YOUR_USER_NAME ALL=(ALL) NOPASSWD: ALL""".stripMargin.node(
         "brew cask install intellij-toolbox".node(
           "Manual: Install intellij".node(
             "Manual: Setting repository".leaf
           )
         ),
         "brew cask install google-japanese-input ".node(
+          "Google Japanese Input Preference > Space input style -> from 入力モードに従う to 半角".leaf,
           "Start google japanese ime and RESTART".node(
             "Manual: Google Japanese Input Preference".leaf,
-            "iterm2".node(
+            "iTerm".node(
+              """https://github.com/sindresorhus/iterm2-snazzy""".node(
+                "Profiles > Colors > ANSI Colors > Snazzy".leaf
+              ),
               """
                 |General > Closing > UNCHECK ALL
                 |General > Window > [x] Smart window placement
