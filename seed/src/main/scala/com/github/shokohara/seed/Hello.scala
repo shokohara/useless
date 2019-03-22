@@ -74,6 +74,7 @@ object Main {
                       "dotfiles".node(
                         "tmux".node(
                           """ssh-keygen -t ed25519 -f $HOME/.ssh/id_ed25519 -q -N """"".node(
+                            "https://github.com/settings/keys".leaf,
                             "ghq home".node(
                               "ghq ???".leaf
                             ),
