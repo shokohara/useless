@@ -56,7 +56,7 @@ object Hello extends IOApp with LazyLogging {
         ChannelsListRequest
           .builder().token(applicationConfig.slackToken).build().pipe(slack.methods().channelsList).validNec.andThen(
             _.getChannels.asScala
-              .find(_.getName === applicationConfig.slackChannelName).toRight(new RuntimeException(""))
+              .find(a => applicationConfig.slackChannelNames.exists(a.getName === _)).toRight(new RuntimeException(""))
               .toValidatedNec)
           .andThen { c =>
             g(slack, applicationConfig, c, until.atStartOfDay(zoneId), Nil).unsafeRunSync().andThen { h =>

@@ -2,7 +2,7 @@ package controllers
 
 import java.time.{DayOfWeek, LocalDate, ZoneId}
 
-import cats.data.EitherT
+import cats.data.{EitherT, NonEmptyList}
 import cats.effect.Effect
 import cats.implicits._
 import com.github.shokohara.slack.{ApplicationConfig, Hello, SummaryLocalTime}
@@ -31,7 +31,7 @@ class SlackController(cc: ControllerComponents)(implicit val ec: ExecutionContex
     s"${local.open}\t${local.close}\t${local.restingTime}\t${local.workingTime}"
 
   def index: Action[Request] = Action.asyncF(circe.json[Request]) { request =>
-    val c = ApplicationConfig(request.body.token, request.body.channelName, request.body.userName)
+    val c = ApplicationConfig(request.body.token, request.body.channelNames, request.body.userName)
     Hello
       .toSummary(c, request.body.localDate.plusDays(1), request.body.zoneId).map(_.map(_.toLocal(request.body.zoneId)))
       .map {
@@ -51,7 +51,7 @@ class SlackController(cc: ControllerComponents)(implicit val ec: ExecutionContex
 
 object SlackController {
   final case class Request(token: NonEmptyString,
-                           channelName: NonEmptyString,
+                           channelNames: NonEmptyList[NonEmptyString],
                            userName: NonEmptyString,
                            localDate: LocalDate,
                            zoneId: ZoneId)
