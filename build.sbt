@@ -69,7 +69,10 @@ lazy val web = (project in file("web"))
     dockerBaseImage := "openjdk:8u181-jdk-stretch",
     daemonUser in Docker := "root",
     dockerEntrypoint := Seq("/bin/sh", "-c"),
-    dockerCmd := Seq("/opt/docker/bin/web"),
+    dockerCmd := "/opt/docker/bin/web"
+      :: "-XX:+UnlockExperimentalVMOptions"
+      :: "-XX:+UseCGroupMemoryLimitForHeap"
+      :: Nil,
   )
   .enablePlugins(BuildInfoPlugin, PlayScala)
   .dependsOn(slack)
