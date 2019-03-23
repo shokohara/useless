@@ -257,7 +257,8 @@ object Hello extends IOApp with LazyLogging {
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def adtsToSummary(adts: NonEmptyList[Adt]): ValidatedNec[RuntimeException, Summary] = {
     logger.debug(adts.toString)
-    adts.init.lastOption
+    adts
+      .sortBy(_.ts).init.lastOption
       .toValidNec(new RuntimeException("")).andThen(
         a =>
           (validateAdts(adts),

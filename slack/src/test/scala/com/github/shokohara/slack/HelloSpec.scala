@@ -80,4 +80,20 @@ class HelloSpec extends FlatSpec with Matchers {
         s"Message($userId,2019-02-20T01:44:03.148800Z,猫に投薬してました :cat2:)をcom.github.shokohara.slack.Adtに変換できません".invalidNec.validNec
     }
   }
+  it should "work" in {
+    adtsToSummary(
+      NonEmptyList.of(
+        Close(ZonedDateTime.parse("2019-03-21T14:53:03.136600Z")),
+        Back(ZonedDateTime.parse("2019-03-21T08:18:45.131800Z")),
+        Afk(ZonedDateTime.parse("2019-03-21T05:46:00.099600Z")),
+        Open(ZonedDateTime.parse("2019-03-21T02:26:06.091800Z"))
+      )) shouldEqual Summary(
+      ZonedDateTime.parse("2019-03-21T02:26:06.091800Z"),
+      ZonedDateTime.parse("2019-03-21T14:53:03.136600Z"),
+      Duration.parse("PT2H32M45.0322S"),
+      Duration.parse("PT9H54M12.0126S"),
+      DayOfWeek.THURSDAY,
+      "春分の日".some
+    ).valid
+  }
 }
