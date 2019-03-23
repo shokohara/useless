@@ -207,7 +207,7 @@ object Hello extends IOApp with LazyLogging {
     */
   def stringToAdt(a: Message): ValidatedNec[RuntimeException, ValidatedNec[RuntimeException, Adt]] =
     if (a.text === "open" || a.text === "開店") Open(a.ts).validNec.validNec
-    else if (a.text.startsWith("opened at ") || a.text.startsWith("opend at "))
+    else if (a.text.startsWith("opened at "))
       try {
         val timeText = a.text.reverse.takeWhile(_.isSpaceChar === false).reverse
         val localTime = LocalTime.parse(timeText)
