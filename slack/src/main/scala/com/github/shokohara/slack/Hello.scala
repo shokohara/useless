@@ -103,8 +103,6 @@ object Hello extends IOApp with LazyLogging {
                     g(slack, applicationConfig, c, until, acc ++ n.toList).unsafeRunSync()
                   },
                   (left, right) => {
-                    logger.debug(left.map(_.ts).map(_.show).mkString_("", "\n", ""))
-                    logger.debug(right.map(_.ts).map(_.show).mkString_("", "\n", ""))
                     (acc ++ right.toList).validNec
                   }
                 )
