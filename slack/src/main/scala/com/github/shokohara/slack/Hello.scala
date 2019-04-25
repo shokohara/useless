@@ -184,7 +184,8 @@ object Hello extends IOApp with LazyLogging {
         myMessages
           .filter(_.ts.withZoneSameInstant(zoneId).toLocalDate === latestDate).toNel
           .toRight(new RuntimeException(s"$latestDate のメッセージが存在しません")).toValidatedNec
-          .andThen(_.traverse[ValidatedNec[RuntimeException, ?], ValidatedNec[RuntimeException, Adt]](stringToAdt))
+          .andThen(
+            _.traverse[ValidatedNec[RuntimeException, ?], ValidatedNec[RuntimeException, Adt]](stringToAdt(_, zoneId)))
           .andThen(_.toList.flatMap(_.toOption.toList).toNel.toRight(new RuntimeException("toNel")).toValidatedNec)
       }
 
@@ -203,13 +204,16 @@ object Hello extends IOApp with LazyLogging {
     * @param a Slackのメッセージ
     * @return `[計算結果を使った計算が続行されたくない場合, [警告として表示しつつ計算が続行されたい場合(雑談), 正常な結果]]`
     */
-  def stringToAdt(a: Message): ValidatedNec[RuntimeException, ValidatedNec[RuntimeException, Adt]] =
+  def stringToAdt(a: Message, zoneId: ZoneId): ValidatedNec[RuntimeException, ValidatedNec[RuntimeException, Adt]] =
     if (a.text === "open" || a.text === "開店" || a.text.startsWith("open ")) Open(a.ts).validNec.validNec
     else if (a.text.startsWith("opened at "))
       try {
         val timeText = a.text.reverse.takeWhile(_.isSpaceChar === false).reverse
         val localTime = LocalTime.parse(timeText)
-        Open(a.ts.withHour(localTime.getHour).withMinute(localTime.getMinute)).validNec.validNec
+        Open(
+          a.ts
+            .withZoneSameInstant(zoneId).withHour(localTime.getHour).withMinute(localTime.getMinute).withSecond(0)
+            .withNano(0)).validNec.validNec
       } catch { case e: RuntimeException => e.invalidNec } else if (a.text === "afk" || a.text === "qk")
       Afk(a.ts).validNec.validNec
     else if (a.text === "back") Back(a.ts).validNec.validNec
