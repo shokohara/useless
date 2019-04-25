@@ -2,7 +2,7 @@ package com.github.shokohara.slack
 
 import java.time._
 
-import cats.data.NonEmptyList
+import cats.data.{NonEmptyList, ValidatedNec}
 import cats.data.Validated.Valid
 import cats.implicits._
 import com.github.shokohara.slack.Hello._
@@ -95,5 +95,21 @@ class HelloSpec extends FlatSpec with Matchers {
       DayOfWeek.THURSDAY,
       "春分の日".some
     ).valid
+  }
+  it should """work with "open", "close PRの対応しました" """ in {
+    val a: List[ValidatedNec[RuntimeException, ValidatedNec[RuntimeException, Adt]]] =
+      (Message("user", ZonedDateTime.parse("2019-04-25T21:38:06.091800Z"), "open") ::
+        Message("user", ZonedDateTime.parse("2019-04-25T22:49:06.091800Z"), "close PRの対応しました") :: Nil).map(stringToAdt)
+    val b: NonEmptyList[Adt] = a.map(_.fold(_ => ???, _.fold(_ => ???, identity))).toNel.get
+    adtsToSummary(b) shouldEqual Valid(
+      Summary(
+        ZonedDateTime.parse("2019-04-25T21:38:06.091800Z"),
+        ZonedDateTime.parse("2019-04-25T22:49:06.091800Z"),
+        Duration.parse("PT0S"),
+        Duration.parse("PT1H11M"),
+        DayOfWeek.THURSDAY,
+        None
+      )
+    )
   }
 }

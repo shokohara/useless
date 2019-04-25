@@ -206,7 +206,7 @@ object Hello extends IOApp with LazyLogging {
     * @return `[計算結果を使った計算が続行されたくない場合, [警告として表示しつつ計算が続行されたい場合(雑談), 正常な結果]]`
     */
   def stringToAdt(a: Message): ValidatedNec[RuntimeException, ValidatedNec[RuntimeException, Adt]] =
-    if (a.text === "open" || a.text === "開店") Open(a.ts).validNec.validNec
+    if (a.text === "open" || a.text === "開店" || a.text.startsWith("open ")) Open(a.ts).validNec.validNec
     else if (a.text.startsWith("opened at "))
       try {
         val timeText = a.text.reverse.takeWhile(_.isSpaceChar === false).reverse
@@ -215,7 +215,7 @@ object Hello extends IOApp with LazyLogging {
       } catch { case e: RuntimeException => e.invalidNec } else if (a.text === "afk" || a.text === "qk")
       Afk(a.ts).validNec.validNec
     else if (a.text === "back") Back(a.ts).validNec.validNec
-    else if (a.text === "close" || a.text === "閉店") Close(a.ts).validNec.validNec
+    else if (a.text === "close" || a.text === "閉店" || a.text.startsWith("close ")) Close(a.ts).validNec.validNec
     else
       new RuntimeException(s"${a}を${classOf[Adt].getName}に変換できません").invalidNec.validNec: ValidatedNec[
         RuntimeException,
