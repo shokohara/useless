@@ -262,7 +262,7 @@ object Hello extends IOApp with LazyLogging {
           (validateAdts(adts),
            adtsToWorkingDuration(adts, None),
            adts.filter(isOpen).headOption.toRight(new RuntimeException("")).toValidatedNec,
-           (if (isAfk(a)) adts.init.lastOption else adts.filter(isClose).headOption)
+           (if (isAfk(a)) adts.init.lastOption else adts.filter(a => isClose(a) | isAfk(a)).headOption)
              .toRight(new RuntimeException)
              .toValidatedNec).mapN {
             case (opens, b, open, close) =>
@@ -282,8 +282,8 @@ object Hello extends IOApp with LazyLogging {
     adts.filter(isOpen).toNel.toRight(new RuntimeException("Openが0です")).toValidatedNec.andThen { opens =>
       if (opens.length > 1)
         new RuntimeException("Openが複数存在します").invalidNec
-      else if (adts.count(isClose).isEmpty)
-        new RuntimeException("Closeが0です").invalidNec
+      else if (adts.count(isClose).isEmpty && adts.count(isAfk).isEmpty)
+        new RuntimeException("CloseかAfkが0です").invalidNec
       else if (adts.count(isClose) > 1)
         new RuntimeException("Closeが複数存在します").invalidNec
       else if (adts.count(isAfk) === adts.count(isBack) || adts.count(isAfk) === adts.count(isBack) + 1)
