@@ -29,6 +29,18 @@ lazy val slack = (project in file("slack"))
     ) ++ commonLibraryDependencies
   )
 lazy val seed = (project in file("seed")).settings(
+  libraryDependencies += "org.json4s" %% "json4s-jackson" % "3.6.5",
+  libraryDependencies += "org.json4s" %% "json4s-xml" % "3.6.5",
+  libraryDependencies ++= Seq(
+    "org.typelevel" %% "cats-effect" % "1.2.0",
+    "io.circe" %% "circe-core" % circeVersion,
+    "io.circe" %% "circe-generic" % circeVersion,
+    "io.circe" %% "circe-parser" % circeVersion,
+    "io.circe" %% "circe-java8" % circeVersion,
+    "io.circe" %% "circe-refined" % circeVersion,
+    "io.circe" %% "circe-generic-extras" % "0.10.1",
+  ),
+  libraryDependencies ++= Seq( "com.github.pathikrit" %% "better-files" % "3.7.1"),
   libraryDependencies += scalaTest
 )
 lazy val lol = (project in file("lol"))
