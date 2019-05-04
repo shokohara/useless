@@ -113,4 +113,20 @@ class HelloSpec extends FlatSpec with Matchers {
       )
     )
   }
+  it should """open close""" in {
+    val a: List[ValidatedNec[RuntimeException, ValidatedNec[RuntimeException, Adt]]] =
+      (Message("user", ZonedDateTime.parse("2019-05-03T10:39:07.091800Z"), "open") ::
+        Message("user", ZonedDateTime.parse("2019-05-03T23:23:27.091800Z"), "close") :: Nil).map(stringToAdt(_, zoneId))
+    val b: NonEmptyList[Adt] = a.map(_.fold(_ => ???, _.fold(_ => ???, identity))).toNel.get
+    adtsToSummary(b) shouldEqual Valid(
+      Summary(
+        ZonedDateTime.parse("2019-05-03T10:39:07.091800Z"),
+        ZonedDateTime.parse("2019-05-03T23:23:27.091800Z"),
+        Duration.parse("PT0S"),
+        Duration.parse("PT12H44M20S"),
+        DayOfWeek.FRIDAY,
+        Some("憲法記念日")
+      )
+    )
+  }
 }
