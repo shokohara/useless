@@ -3,7 +3,7 @@ ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / organization := "com.github.shokohara"
 ThisBuild / organizationName := "Sho Kohara"
 
-lazy val root = (project in file(".")).aggregate(seed, lol, slack, web)
+lazy val root = (project in file(".")).aggregate(seed, seeds, lol, slack, web)
 lazy val slack = (project in file("slack"))
   .settings(commonSettings)
   .settings(
@@ -28,6 +28,9 @@ lazy val slack = (project in file("slack"))
       "com.lihaoyi" %% "sourcecode" % "0.1.5"
     ) ++ commonLibraryDependencies
   )
+lazy val seeds = (project in file("seeds")).settings(
+  libraryDependencies += scalaTest
+)
 lazy val seed = (project in file("seed")).settings(
   libraryDependencies += scalaTest
 )
@@ -43,7 +46,7 @@ lazy val web = (project in file("web"))
     libraryDependencies ++= Seq(
       scalaTest,
       "be.venneborg" %% "play26-refined" % "0.3.0",
-      "com.softwaremill.macwire" %% "macros" % "2.3.1" % Provided,
+      "com.softwaremill.macwire" %% "macros" % "2.3.3" % Provided,
       "com.dripower" %% "play-circe" % "2711.0",
       "io.circe" %% "circe-core" % circeVersion,
       "io.circe" %% "circe-generic" % circeVersion,
