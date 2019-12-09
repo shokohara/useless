@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "",
   "main": "webpack.config.js",
+  "engines": {
+    "node": "12.13.1",
+    "npm": "6.13.2"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
