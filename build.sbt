@@ -119,7 +119,7 @@ lazy val commonSettings = Seq(
   :: wartremover.Wart.Null
   :: wartremover.Wart.Option2Iterable
   :: wartremover.Wart.OptionPartial
-  :: wartremover.Wart.Overloading 
+  :: wartremover.Wart.Overloading
   :: wartremover.Wart.Product
 //  :: wartremover.Wart.Recursion
   :: wartremover.Wart.Return
@@ -129,7 +129,7 @@ lazy val commonSettings = Seq(
   :: wartremover.Wart.ToString
   :: wartremover.Wart.TraversableOps
   :: wartremover.Wart.TryPartial
-  :: wartremover.Wart.While 
+  :: wartremover.Wart.While
   :: Nil,
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")
 )
