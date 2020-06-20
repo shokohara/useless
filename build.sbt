@@ -29,7 +29,8 @@ lazy val slack = (project in file("slack"))
     ) ++ commonLibraryDependencies
   )
 lazy val seed = (project in file("seed")).settings(
-  libraryDependencies += scalaTest
+  libraryDependencies += scalaTest,
+  libraryDependencies ++= Seq("com.github.pathikrit" %% "better-files" % "3.8.0")
 )
 lazy val lol = (project in file("lol"))
   .settings(commonSettings)
