@@ -14,17 +14,11 @@ lazy val slack = (project in file("slack"))
       "jp.t2v" %% "holidays" % "5.2",
       "eu.timepit" %% "refined" % refinedVersion,
       "eu.timepit" %% "refined-pureconfig" % refinedVersion,
-      "eu.timepit" %% "refined-cats" % refinedVersion,
-      "com.github.pureconfig" %% "pureconfig" % pureconfigVersion,
-      "com.github.pureconfig" %% "pureconfig-cats" % pureconfigVersion,
+      "com.github.pureconfig" %% "pureconfig-generic" % pureconfigVersion,
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
       "org.typelevel" %% "kittens" % "1.2.1",
-      "io.chrisdavenport" % "cats-time_2.12" % "0.2.0",
+      "io.chrisdavenport" %% "cats-time" % "0.2.0",
       "org.typelevel" %% "cats-effect" % "1.2.0",
-      "ch.qos.logback" % "logback-classic" % "1.2.3",
-      "org.tpolecat" %% "doobie-core" % doobieVersion,
-      "org.tpolecat" %% "doobie-postgres" % doobieVersion,
-      "org.tpolecat" %% "doobie-specs2" % doobieVersion,
       "com.lihaoyi" %% "sourcecode" % "0.1.5"
     ) ++ commonLibraryDependencies
   )
@@ -48,12 +42,20 @@ lazy val web = (project in file("web"))
       "com.dripower" %% "play-circe" % "2711.0",
       "io.circe" %% "circe-core" % circeVersion,
       "io.circe" %% "circe-generic" % circeVersion,
-      "io.circe" %% "circe-parser" % circeVersion,
       "io.circe" %% "circe-java8" % circeVersion,
       "io.circe" %% "circe-refined" % circeVersion,
       "com.typesafe.play" %% "play-json" % "2.7.1", // 一時的にsbt-play-swaggerのために必要
       "org.webjars" % "swagger-ui" % "2.2.0",
     ) ++ silencers ++ commonLibraryDependencies,
+    libraryDependencies --= Seq(
+      "com.typesafe.play" %% "filters-helpers" % "2.7.0",
+      "com.typesafe.play" %% "play-akka-http-server" % "2.7.0",
+      "com.typesafe.play" %% "play-json" % "2.7.1",
+      "com.typesafe.play" %% "play-logback" % "2.7.0",
+      "com.typesafe.play" %% "play-server" % "2.7.0",
+      "org.webjars" % "swagger-ui" % "2.2.0"
+    ),
+    unusedCompileDependenciesFilter := moduleFilter() - moduleFilter("com.github.ghik", "silencer-lib"),
     buildInfoKeys := Seq[BuildInfoKey](
       "gitHeadCommit" -> git.gitHeadCommit.value.getOrElse(""),
       "gitHeadCommitDate" -> git.gitHeadCommitDate.value.getOrElse(""),
@@ -66,6 +68,12 @@ lazy val web = (project in file("web"))
       "be.venneborg.refined.play.RefinedQueryBinders._",
       "com.github.shokohara.playextra.QueryStringBindable._",
       "eu.timepit.refined.types.string._"
+    ),
+    sources in(Compile, doc) := Seq.empty,
+    publishArtifact in(Compile, packageDoc) := false,
+    scalacOptions ++= Seq(
+      "-P:silencer:pathFilters=target/.*",
+      s"-P:silencer:sourceRoots=${baseDirectory.value.getCanonicalPath}"
     ),
     dockerBaseImage := "openjdk:8u181-jdk-stretch",
     daemonUser in Docker := "root",
