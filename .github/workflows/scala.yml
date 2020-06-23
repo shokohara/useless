@@ -17,11 +17,7 @@ jobs:
       uses: actions/setup-java@v1
       with:
         java-version: 1.8
-    - name: scalafmt
-      run: sbt scalafmt
-    - name: test:scalafmt
-      run: sbt test:scalafmt
-    - name: scalafmtSbt
-      run: sbt scalafmtSbt
+    - name: scalafmtCheckAll
+      run: sbt scalafmtCheckAll
     - name: Run tests
       run: sbt test
