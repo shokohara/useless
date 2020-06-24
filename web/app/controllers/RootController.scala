@@ -8,7 +8,8 @@ import play.api.mvc.{AbstractController, Action, AnyContent, ControllerComponent
 
 class RootController(cc: ControllerComponents) extends AbstractController(cc) {
 
-  def index: Action[AnyContent] = Action {
-    Ok(views.html.Index.render(ZonedDateTime.now(ZoneId.of("Asia/Tokyo")).getYear))
-  }
+  def index: Action[AnyContent] =
+    Action {
+      Ok(views.html.Index.render(ZonedDateTime.now(ZoneId.of("Asia/Tokyo")).getYear))
+    }
 }

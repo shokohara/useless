@@ -25,18 +25,21 @@ class HelloSpec extends FlatSpec with Matchers {
     val afk2Zdt = ZonedDateTime.of(localDate, afk2Time, zoneId)
     val closeZdt = ZonedDateTime.of(localDate, closeTime, zoneId)
     val adts: NonEmptyList[Adt] = NonEmptyList.fromListUnsafe(
-      Open(openZdt) :: Afk(afk1Zdt) :: Back(backZdt) :: Afk(afk2Zdt) :: Close(closeZdt) :: Nil)
+      Open(openZdt) :: Afk(afk1Zdt) :: Back(backZdt) :: Afk(afk2Zdt) :: Close(closeZdt) :: Nil
+    )
 
     Hello
-      .adtsToSummary(adts).fold(_ => fail(),
-                                _ shouldEqual Summary(
-                                  openZdt,
-                                  afk2Zdt,
-                                  Duration.parse("PT22M24S"),
-                                  Duration.parse("PT8H22M26S"),
-                                  DayOfWeek.FRIDAY,
-                                  None
-                                ))
+      .adtsToSummary(adts).fold(
+        _ => fail(),
+        _ shouldEqual Summary(
+          openZdt,
+          afk2Zdt,
+          Duration.parse("PT22M24S"),
+          Duration.parse("PT8H22M26S"),
+          DayOfWeek.FRIDAY,
+          None
+        )
+      )
   }
   behavior of "stringToAdt"
   "RLGURERL7".pipe { userId =>
@@ -87,7 +90,8 @@ class HelloSpec extends FlatSpec with Matchers {
         Back(ZonedDateTime.parse("2019-03-21T08:18:45.131800Z")),
         Afk(ZonedDateTime.parse("2019-03-21T05:46:00.099600Z")),
         Open(ZonedDateTime.parse("2019-03-21T02:26:06.091800Z"))
-      )) shouldEqual Summary(
+      )
+    ) shouldEqual Summary(
       ZonedDateTime.parse("2019-03-21T02:26:06.091800Z"),
       ZonedDateTime.parse("2019-03-21T14:53:03.136600Z"),
       Duration.parse("PT2H32M45.0322S"),

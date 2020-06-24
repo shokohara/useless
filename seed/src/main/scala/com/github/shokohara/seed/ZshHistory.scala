@@ -10,7 +10,7 @@ object ZshHistory extends App {
   file.take(1).map { x =>
     println(x)
     val m = """\s([0-9]+):([0-9]+);([\w\s~/.]*)""".r.findAllIn(x)
-    val snapshot =  m.group(1)
+    val snapshot = m.group(1)
     val executionTime = m.group(2)
     val sh = m.group(3)
     assert(x.dropWhile(_ != ';').drop(1) == sh)

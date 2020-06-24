@@ -11,7 +11,8 @@ class BuildInfoController(cc: ControllerComponents)(implicit val ec: ExecutionCo
   extends AbstractController(cc) with Circe {
 
   @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.ToString"))
-  def index = Action {
-    Ok(BuildInfo.toMap.mapValues(_.toString).asJson)
-  }
+  def index =
+    Action {
+      Ok(BuildInfo.toMap.mapValues(_.toString).asJson)
+    }
 }
