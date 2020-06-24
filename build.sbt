@@ -10,6 +10,12 @@ lazy val slack = (project in file("slack"))
     scalacOptions +=  "-Ypartial-unification",
     libraryDependencies ++= Seq(
       scalaTest,
+      "com.chuusai" %% "shapeless" % "2.3.3",
+      "com.github.pureconfig" %% "pureconfig-core" % "0.10.2",
+      "org.scala-lang" % "scala-reflect" % "2.12.11",
+      "org.slf4j" % "slf4j-api" % "1.7.25",
+      "org.typelevel" %% "cats-core" % "1.6.0",
+      "org.typelevel" %% "cats-kernel" % "1.6.0",
       "com.github.seratch" % "jslack" % "1.1.7",
       "jp.t2v" %% "holidays" % "5.2",
       "eu.timepit" %% "refined" % refinedVersion,
@@ -37,6 +43,15 @@ lazy val web = (project in file("web"))
   .settings(
     libraryDependencies ++= Seq(
       scalaTest,
+      "com.chuusai" %% "shapeless" % "2.3.3",
+      "com.lihaoyi" %% "sourcecode" % "0.1.5",
+      "com.typesafe.play" %% "play" % "2.7.0",
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
+      "eu.timepit" %% "refined" % "0.9.4",
+      "org.slf4j" % "slf4j-api" % "1.7.25",
+      "org.typelevel" %% "cats-core" % "1.6.0",
+      "org.typelevel" %% "cats-effect" % "1.2.0",
+      "org.typelevel" %% "cats-kernel" % "1.6.0",
       "be.venneborg" %% "play26-refined" % "0.3.0",
       "com.softwaremill.macwire" %% "macros" % "2.3.1" % Provided,
       "com.dripower" %% "play-circe" % "2711.0",
