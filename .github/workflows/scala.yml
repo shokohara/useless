@@ -19,5 +19,7 @@ jobs:
         java-version: 1.8
     - name: scalafmtCheckAll
       run: sbt scalafmtCheckAll
+    - name: unusedCompileDependenciesTest
+      run: sbt unusedCompileDependenciesTest
     - name: Run tests
       run: sbt test
