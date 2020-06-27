@@ -8,9 +8,9 @@ import cats.effect._
 import cats.implicits._
 import com.github.seratch.jslack.Slack
 import com.github.seratch.jslack.api.methods.SlackApiResponse
-import com.github.seratch.jslack.api.methods.request.channels._
+import com.github.seratch.jslack.api.methods.request.conversations.{ConversationsHistoryRequest, ConversationsListRequest}
 import com.github.seratch.jslack.api.methods.request.users.UsersListRequest
-import com.github.seratch.jslack.api.model.{Channel, User}
+import com.github.seratch.jslack.api.model.{Conversation, ConversationType, User}
 import com.github.shokohara.slack
 import com.typesafe.scalalogging.LazyLogging
 import eu.timepit.refined.W
@@ -19,6 +19,7 @@ import eu.timepit.refined.auto._
 import eu.timepit.refined.numeric.Interval.Closed
 import io.chrisdavenport.cats.time._
 import jp.t2v.util.locale.Implicits._
+import pureconfig.ConfigSource
 
 import scala.collection.JavaConverters._
 import scala.util.Try
@@ -26,7 +27,7 @@ import scala.util.chaining._
 
 object Hello extends IOApp with LazyLogging {
 
-  val config = IO(_root_.pureconfig.loadConfigOrThrow[ApplicationConfig])
+  val config = IO(ConfigSource.default.loadOrThrow[ApplicationConfig])
 //  val asiaTokyo: ZoneId = ZoneId.of("Asia/Tokyo")
 
   def toTimestampString(zonedDateTime: ZonedDateTime): String =
@@ -57,8 +58,8 @@ object Hello extends IOApp with LazyLogging {
             .andThen(a => Validated.condNec(a.length === 1, a.head, new RuntimeException("ユーザーが重複しています")))
         )
         .andThen { u =>
-          ChannelsListRequest
-            .builder().token(applicationConfig.slackToken).build().pipe(slack.methods().channelsList).validNec.andThen(
+          ConversationsListRequest.builder().token(applicationConfig.slackToken)
+            .types(ConversationType.values().toList.asJava).build().pipe(slack.methods().conversationsList).validNec.andThen(
               _.getChannels.asScala
                 .find(a => applicationConfig.slackChannelNames.exists(a.getName === _)).toRight(
                   new RuntimeException("")
@@ -79,20 +80,20 @@ object Hello extends IOApp with LazyLogging {
   def g(
     slack: Slack,
     applicationConfig: ApplicationConfig,
-    c: Channel,
+    c: Conversation,
     until: ZonedDateTime,
     acc: List[Message]
   ): IO[ValidatedNec[RuntimeException, List[Message]]] =
     IO(
       Try(
-        ChannelsHistoryRequest
-          .builder().token(applicationConfig.slackToken).channel(c.getId).count(slackCount.value).pipe { b =>
+        ConversationsHistoryRequest
+          .builder().token(applicationConfig.slackToken).channel(c.getId).limit(slackCount.value).pipe { b =>
             acc.toNel.fold(b)(nel =>
               b.latest(toTimestampString(nel.map(_.ts).minimum))
                 .oldest(toTimestampString(nel.map(_.ts).minimum.minusDays(1)))
             )
           }
-          .build().pipe(slack.methods().channelsHistory)
+          .build().pipe(slack.methods().conversationsHistory)
           .toEither
           .map(_.getMessages.asScala.toList.traverse[ValidatedNec[RuntimeException, ?], Message](m2m))
           .toValidatedNec

@@ -7,61 +7,52 @@ lazy val root = (project in file(".")).aggregate(seed, lol, slack, web)
 lazy val slack = (project in file("slack"))
   .settings(commonSettings)
   .settings(
+    mUnitSettings,
     scalacOptions +=  "-Ypartial-unification",
     libraryDependencies ++= Seq(
-      scalaTest,
       "com.chuusai" %% "shapeless" % "2.3.3",
-      "com.github.pureconfig" %% "pureconfig-core" % "0.10.2",
       "org.scala-lang" % "scala-reflect" % "2.12.11",
-      "org.slf4j" % "slf4j-api" % "1.7.25",
-      "org.typelevel" %% "cats-core" % "1.6.0",
-      "org.typelevel" %% "cats-kernel" % "1.6.0",
-      "com.github.seratch" % "jslack" % "1.1.7",
-      "jp.t2v" %% "holidays" % "5.2",
+      "org.slf4j" % "slf4j-api" % "1.7.30",
+      "org.typelevel" %% "cats-core" % "2.1.1",
+      "com.github.seratch" % "jslack" % "3.4.2",
+      "jp.t2v" %% "holidays" % "6.0",
       "eu.timepit" %% "refined" % refinedVersion,
       "eu.timepit" %% "refined-pureconfig" % refinedVersion,
       "com.github.pureconfig" %% "pureconfig-generic" % pureconfigVersion,
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
-      "org.typelevel" %% "kittens" % "1.2.1",
-      "io.chrisdavenport" %% "cats-time" % "0.2.0",
-      "org.typelevel" %% "cats-effect" % "1.2.0",
-      "com.lihaoyi" %% "sourcecode" % "0.1.5"
-    ) ++ commonLibraryDependencies
+      "org.typelevel" %% "kittens" % "2.1.0",
+      "io.chrisdavenport" %% "cats-time" % "0.3.0",
+      "org.typelevel" %% "cats-effect" % "2.1.3",
+      "com.lihaoyi" %% "sourcecode" % "0.2.1"
+    )
   )
 lazy val seed = (project in file("seed")).settings(
-  libraryDependencies += scalaTest,
-  libraryDependencies ++= Seq("com.github.pathikrit" %% "better-files" % "3.8.0")
+  libraryDependencies += "org.scalameta" %% "munit" % "0.7.9" % Test,
+  libraryDependencies ++= Seq("com.github.pathikrit" %% "better-files" % "3.9.1")
 )
 lazy val lol = (project in file("lol"))
   .settings(commonSettings)
-  .settings(
-    libraryDependencies += scalaTest
-  )
 
 lazy val web = (project in file("web"))
   .settings(commonSettings)
   .settings(
+    mUnitSettings,
     libraryDependencies ++= Seq(
-      scalaTest,
       "com.chuusai" %% "shapeless" % "2.3.3",
-      "com.lihaoyi" %% "sourcecode" % "0.1.5",
+      "com.lihaoyi" %% "sourcecode" % "0.2.1",
       "com.typesafe.play" %% "play" % "2.7.0",
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
-      "eu.timepit" %% "refined" % "0.9.4",
-      "org.slf4j" % "slf4j-api" % "1.7.25",
-      "org.typelevel" %% "cats-core" % "1.6.0",
-      "org.typelevel" %% "cats-effect" % "1.2.0",
-      "org.typelevel" %% "cats-kernel" % "1.6.0",
-      "be.venneborg" %% "play26-refined" % "0.3.0",
-      "com.softwaremill.macwire" %% "macros" % "2.3.1" % Provided,
-      "com.dripower" %% "play-circe" % "2711.0",
+      "eu.timepit" %% "refined" % refinedVersion,
+      "org.slf4j" % "slf4j-api" % "1.7.30",
+      "be.venneborg" %% "play27-refined" % "0.5.0",
+      "com.softwaremill.macwire" %% "macros" % "2.3.7" % Provided,
+      "com.dripower" %% "play-circe" % "2812.0",
       "io.circe" %% "circe-core" % circeVersion,
       "io.circe" %% "circe-generic" % circeVersion,
-      "io.circe" %% "circe-java8" % circeVersion,
       "io.circe" %% "circe-refined" % circeVersion,
       "com.typesafe.play" %% "play-json" % "2.7.1", // 一時的にsbt-play-swaggerのために必要
       "org.webjars" % "swagger-ui" % "2.2.0",
-    ) ++ silencers ++ commonLibraryDependencies,
+    ) ++ silencers,
     libraryDependencies --= Seq(
       "com.typesafe.play" %% "filters-helpers" % "2.7.0",
       "com.typesafe.play" %% "play-akka-http-server" % "2.7.0",
@@ -101,24 +92,22 @@ lazy val web = (project in file("web"))
   .enablePlugins(BuildInfoPlugin, PlayScala)
   .dependsOn(slack)
 
-lazy val circeVersion = "0.11.1"
-lazy val refinedVersion = "0.9.4"
-lazy val pureconfigVersion = "0.10.2"
+lazy val circeVersion = "0.13.0"
+lazy val refinedVersion = "0.9.14"
+lazy val pureconfigVersion = "0.12.3"
 lazy val doobieVersion = "0.6.0"
-
-lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.0.5" % Test
+lazy val mUnitSettings = Seq(
+  libraryDependencies +=  "org.scalameta" %% "munit" % "0.7.9" % Test,
+  testFrameworks += new TestFramework("munit.Framework"))
 
 lazy val silencers = {
-  val version = "1.3.1"
+  val version = "1.4.2"
   "com.github.ghik" %% "silencer-lib" % version % Provided ::
     compilerPlugin("com.github.ghik" %% "silencer-plugin" % version) :: Nil
 }
 
-lazy val commonLibraryDependencies = Seq(
-  "com.github.bigwheel" %% "util-backports" % "1.1"
-)
 lazy val commonSettings = Seq(
-  scalacOptions ++= Seq("-Xfatal-warnings", "-feature", "-language:higherKinds"),
+  scalacOptions ++= Seq("-Xfatal-warnings", "-deprecation", "-feature", "-language:higherKinds"),
   scalacOptions in(Compile, console) --= Seq("-Ywarn-unused:imports", "-Xfatal-warnings"),
   wartremoverWarnings in(Compile, compile) ++=
      wartremover.Wart.Any
@@ -155,7 +144,9 @@ lazy val commonSettings = Seq(
   :: wartremover.Wart.TryPartial
   :: wartremover.Wart.While
   :: Nil,
-  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")
+  libraryDependencies ++= Seq(
+    "com.github.bigwheel" %% "util-backports" % "2.1"
+  ),
+  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.10")
 )
-addCommandAlias("fmt", "; compile:scalafmt; test:scalafmt; scalafmtSbt")
-addCommandAlias("prePR", "; fmt; test")
+addCommandAlias("prePR", "; test; scalafmtCheckAll; test:unusedCompileDependenciesTest")

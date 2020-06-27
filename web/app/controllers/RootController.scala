@@ -2,7 +2,6 @@ package controllers
 
 import java.time.{ZoneId, ZonedDateTime}
 
-import io.circe.java8.time._
 import io.circe.refined._
 import play.api.mvc.{AbstractController, Action, AnyContent, ControllerComponents}
 

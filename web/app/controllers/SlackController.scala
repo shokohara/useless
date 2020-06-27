@@ -9,7 +9,6 @@ import com.github.shokohara.slack.{ApplicationConfig, Hello, SummaryLocalTime}
 import com.typesafe.scalalogging.StrictLogging
 import eu.timepit.refined.types.string.NonEmptyString
 import io.circe.generic.semiauto._
-import io.circe.java8.time._
 import io.circe.refined._
 import io.circe.syntax._
 import io.circe.{Decoder, Encoder, Json}
