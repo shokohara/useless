@@ -21,7 +21,8 @@ import io.chrisdavenport.cats.time._
 import jp.t2v.util.locale.Implicits._
 import pureconfig.ConfigSource
 
-import scala.collection.JavaConverters._
+//import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 import scala.util.chaining._
 
@@ -31,7 +32,7 @@ object Hello extends IOApp with LazyLogging {
 //  val asiaTokyo: ZoneId = ZoneId.of("Asia/Tokyo")
 
   def toTimestampString(zonedDateTime: ZonedDateTime): String =
-    s"""${zonedDateTime.toEpochSecond}.${zonedDateTime.getNano}"""
+    s"""${zonedDateTime.toEpochSecond.toString}.${zonedDateTime.getNano.toString}"""
 
   implicit class RichSlackApiResponse[A <: SlackApiResponse](a: A) {
 
@@ -163,8 +164,8 @@ object Hello extends IOApp with LazyLogging {
             ExitCode.Error
           },
           y => {
-            println(s"""Resting:${LocalTime.of(0, 0).plus(y._1)}""")
-            println(s"""Working:${LocalTime.of(0, 0).plus(y._2)}""")
+            println(s"""Resting:${LocalTime.of(0, 0).plus(y._1).toString}""")
+            println(s"""Working:${LocalTime.of(0, 0).plus(y._2).toString}""")
             ExitCode.Success
           }
         )
@@ -199,7 +200,7 @@ object Hello extends IOApp with LazyLogging {
         val latestDate = myMessages.map(_.ts).maximum.withZoneSameInstant(zoneId).toLocalDate
         myMessages
           .filter(_.ts.withZoneSameInstant(zoneId).toLocalDate === latestDate).toNel
-          .toRight(new RuntimeException(s"$latestDate のメッセージが存在しません")).toValidatedNec
+          .toRight(new RuntimeException(s"${latestDate.toString} のメッセージが存在しません")).toValidatedNec
           .andThen(
             _.traverse[ValidatedNec[RuntimeException, ?], ValidatedNec[RuntimeException, Adt]](stringToAdt(_, zoneId))
           )
@@ -238,7 +239,7 @@ object Hello extends IOApp with LazyLogging {
     else if (a.text === "back") Back(a.ts).validNec.validNec
     else if (a.text === "close" || a.text === "閉店" || a.text.startsWith("close ")) Close(a.ts).validNec.validNec
     else
-      new RuntimeException(s"${a}を${classOf[Adt].getName}に変換できません").invalidNec.validNec: ValidatedNec[
+      new RuntimeException(s"${a.show}を${classOf[Adt].getName}に変換できません").invalidNec.validNec: ValidatedNec[
         RuntimeException,
         ValidatedNec[RuntimeException, Adt]
       ]
@@ -319,7 +320,7 @@ object Hello extends IOApp with LazyLogging {
       else if (adts.count(isAfk) === adts.count(isBack) || adts.count(isAfk) === adts.count(isBack) + 1)
         opens.validNec
       else
-        new RuntimeException(s"Afkの回数とBackの回数が不正です Afk: ${adts.count(isAfk)} Back: ${adts.count(isBack)}").invalidNec
+        new RuntimeException(s"Afkの回数とBackの回数が不正です Afk: ${adts.count(isAfk).toString} Back: ${adts.count(isBack).toString}").invalidNec
     }
   }
 

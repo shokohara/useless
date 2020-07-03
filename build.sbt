@@ -1,4 +1,4 @@
-ThisBuild / scalaVersion := "2.12.11"
+ThisBuild / scalaVersion := "2.13.3"
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / organization := "com.github.shokohara"
 ThisBuild / organizationName := "Sho Kohara"
@@ -8,10 +8,8 @@ lazy val slack = (project in file("slack"))
   .settings(commonSettings)
   .settings(
     mUnitSettings,
-    scalacOptions +=  "-Ypartial-unification",
     libraryDependencies ++= Seq(
       "com.chuusai" %% "shapeless" % "2.3.3",
-      "org.scala-lang" % "scala-reflect" % "2.12.11",
       "org.slf4j" % "slf4j-api" % "1.7.30",
       "org.typelevel" %% "cats-core" % "2.1.1",
       "com.github.seratch" % "jslack" % "3.4.2",
@@ -23,7 +21,9 @@ lazy val slack = (project in file("slack"))
       "org.typelevel" %% "kittens" % "2.1.0",
       "io.chrisdavenport" %% "cats-time" % "0.3.0",
       "org.typelevel" %% "cats-effect" % "2.1.3",
-      "com.lihaoyi" %% "sourcecode" % "0.2.1"
+      "com.lihaoyi" %% "sourcecode" % "0.2.1",
+      "ch.qos.logback" % "logback-core" % "1.2.3",
+      "ch.qos.logback" % "logback-classic" % "1.2.3",
     )
   )
 lazy val seed = (project in file("seed")).settings(
@@ -40,7 +40,6 @@ lazy val web = (project in file("web"))
     libraryDependencies ++= Seq(
       "com.chuusai" %% "shapeless" % "2.3.3",
       "com.lihaoyi" %% "sourcecode" % "0.2.1",
-      "com.typesafe.play" %% "play" % "2.7.0",
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
       "eu.timepit" %% "refined" % refinedVersion,
       "org.slf4j" % "slf4j-api" % "1.7.30",
@@ -52,7 +51,7 @@ lazy val web = (project in file("web"))
       "io.circe" %% "circe-refined" % circeVersion,
       "com.typesafe.play" %% "play-json" % "2.7.1", // 一時的にsbt-play-swaggerのために必要
       "org.webjars" % "swagger-ui" % "2.2.0",
-    ) ++ silencers,
+    ),
     libraryDependencies --= Seq(
       "com.typesafe.play" %% "filters-helpers" % "2.7.0",
       "com.typesafe.play" %% "play-akka-http-server" % "2.7.0",
@@ -61,7 +60,7 @@ lazy val web = (project in file("web"))
       "com.typesafe.play" %% "play-server" % "2.7.0",
       "org.webjars" % "swagger-ui" % "2.2.0"
     ),
-    unusedCompileDependenciesFilter := moduleFilter() - moduleFilter("com.github.ghik", "silencer-lib"),
+    unusedCompileDependenciesFilter := moduleFilter(),
     buildInfoKeys := Seq[BuildInfoKey](
       "gitHeadCommit" -> git.gitHeadCommit.value.getOrElse(""),
       "gitHeadCommitDate" -> git.gitHeadCommitDate.value.getOrElse(""),
@@ -77,10 +76,7 @@ lazy val web = (project in file("web"))
     ),
     sources in(Compile, doc) := Seq.empty,
     publishArtifact in(Compile, packageDoc) := false,
-    scalacOptions ++= Seq(
-      "-P:silencer:pathFilters=target/.*",
-      s"-P:silencer:sourceRoots=${baseDirectory.value.getCanonicalPath}"
-    ),
+    wartremoverWarnings in(Compile, compile) := Seq.empty,
     dockerBaseImage := "openjdk:8u181-jdk-stretch",
     daemonUser in Docker := "root",
     dockerEntrypoint := Seq("/bin/sh", "-c"),
@@ -99,12 +95,6 @@ lazy val doobieVersion = "0.6.0"
 lazy val mUnitSettings = Seq(
   libraryDependencies +=  "org.scalameta" %% "munit" % "0.7.9" % Test,
   testFrameworks += new TestFramework("munit.Framework"))
-
-lazy val silencers = {
-  val version = "1.4.2"
-  "com.github.ghik" %% "silencer-lib" % version % Provided ::
-    compilerPlugin("com.github.ghik" %% "silencer-plugin" % version) :: Nil
-}
 
 lazy val commonSettings = Seq(
   scalacOptions ++= Seq("-Xfatal-warnings", "-deprecation", "-feature", "-language:higherKinds"),
@@ -147,6 +137,6 @@ lazy val commonSettings = Seq(
   libraryDependencies ++= Seq(
     "com.github.bigwheel" %% "util-backports" % "2.1"
   ),
-  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.10")
+  addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.11.0" cross CrossVersion.full)
 )
 addCommandAlias("prePR", "; test; scalafmtCheckAll; test:unusedCompileDependenciesTest")

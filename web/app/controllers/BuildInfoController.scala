@@ -13,6 +13,6 @@ class BuildInfoController(cc: ControllerComponents)(implicit val ec: ExecutionCo
   @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.ToString"))
   def index =
     Action {
-      Ok(BuildInfo.toMap.mapValues(_.toString).asJson)
+      Ok(BuildInfo.toMap.view.mapValues(_.toString).toMap.asJson)
     }
 }
