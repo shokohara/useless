@@ -4,7 +4,7 @@ ThisBuild / organization := "com.github.shokohara"
 ThisBuild / organizationName := "Sho Kohara"
 
 lazy val root = (project in file(".")).aggregate(seed, lol, slack, web)
-lazy val slack = (project in file("slack"))
+lazy val slack = project
   .settings(commonSettings)
   .settings(
     mUnitSettings,
@@ -22,18 +22,16 @@ lazy val slack = (project in file("slack"))
       "io.chrisdavenport" %% "cats-time" % "0.3.0",
       "org.typelevel" %% "cats-effect" % "2.1.3",
       "com.lihaoyi" %% "sourcecode" % "0.2.1",
-      "ch.qos.logback" % "logback-core" % "1.2.3",
       "ch.qos.logback" % "logback-classic" % "1.2.3",
     )
   )
-lazy val seed = (project in file("seed")).settings(
+lazy val seed = project.settings(
   libraryDependencies += "org.scalameta" %% "munit" % "0.7.9" % Test,
   libraryDependencies ++= Seq("com.github.pathikrit" %% "better-files" % "3.9.1")
 )
-lazy val lol = (project in file("lol"))
-  .settings(commonSettings)
+lazy val lol = project.settings(commonSettings)
 
-lazy val web = (project in file("web"))
+lazy val web = project
   .settings(commonSettings)
   .settings(
     mUnitSettings,
