@@ -49,7 +49,17 @@ lazy val minsoku = project.settings(
     "io.chrisdavenport" %% "cormorant-generic" % "0.3.0"
   )
 )
-lazy val lol = project.settings(commonSettings)
+
+lazy val lol = project.settings(
+  commonSettings,
+  mUnitSettings,
+  wartremoverWarnings in (Compile, compile) -= wartremover.Wart.NonUnitStatements,
+  libraryDependencies ++= Seq(
+    "com.merakianalytics.orianna" % "orianna" % "4.0.0-rc7",
+    "com.github.pureconfig" %% "pureconfig" % "0.13.0",
+    "org.typelevel" %% "cats-core" % "2.1.1"
+  )
+)
 
 lazy val web = project
   .settings(commonSettings)
